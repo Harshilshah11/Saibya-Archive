@@ -22,8 +22,13 @@ export const config = {
   presignExpiresSec: num(env.PRESIGN_EXPIRES_SECONDS, 3600),
   /** A session whose session.json is not marked ended, with no upload for this long, is "interrupted". */
   interruptedAfterMin: num(env.INTERRUPTED_AFTER_MINUTES, 30),
-  /** Nominal chunk length written by cloud_sync. */
+  /** Nominal sensor chunk length written by cloud_sync. */
   chunkSec: num(env.CHUNK_SECONDS, 60),
+  /**
+   * Camera segment length when session.json does not say (older sessions). The DVR records
+   * 10-minute segments; cloud_sync writes the real value into session.json as video_segment_s.
+   */
+  videoSegmentSec: num(env.VIDEO_SEGMENT_SECONDS, 600),
   /** UTC offset of the robot clock, used for chunk names like 20260924_134701 (robot local time). */
   robotUtcOffsetMin: offsetMin(env.ROBOT_UTC_OFFSET ?? "+05:30"),
 };

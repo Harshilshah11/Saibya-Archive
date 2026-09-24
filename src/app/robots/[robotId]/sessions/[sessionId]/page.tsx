@@ -8,7 +8,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { DownloadButton } from "@/components/DownloadButton";
 import { FileList } from "@/components/FileList";
 import { SessionPlayer } from "@/components/player/SessionPlayer";
-import { Crumbs, Panel, Stat, StatusBadge } from "@/components/ui";
+import { Crumbs, Panel, Stat, StatusBadge, UploadBadge } from "@/components/ui";
 
 type Props = {
   params: Promise<{ robotId: string; sessionId: string }>;
@@ -34,7 +34,7 @@ export default async function SessionPage({ params, searchParams }: Props) {
   const apiBase = `/api/robots/${encodeURIComponent(robotId)}/sessions/${encodeURIComponent(sessionId)}`;
   const base = `${robotId}_${sessionId}`;
   const cameras = session.cameras.map((name) => {
-    const segs = cameraSegments(files, name);
+    const segs = cameraSegments(files, name, session.videoSegmentSec);
     const all = files.filter((f) => f.camera === name);
     return {
       name,
@@ -65,6 +65,12 @@ export default async function SessionPage({ params, searchParams }: Props) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-mono text-xl font-semibold tracking-tight">{sessionId}</h1>
           <StatusBadge status={session.status} />
+          <UploadBadge status={session.status} upload={session.upload} />
+          {session.simulated && (
+            <span className="rounded-full border border-amber-500/60 px-2 py-0.5 text-xs font-medium text-amber-500">
+              Simulated data
+            </span>
+          )}
           {session.status === "active" && <AutoRefresh />}
           <div className="ml-auto">
             <DownloadButton
@@ -143,7 +149,7 @@ export default async function SessionPage({ params, searchParams }: Props) {
               button={
                 <DownloadButton
                   apiBase={apiBase}
-                  fileName={`${base}_lidar.zip`}
+                  fileName={`${base}_lidar.npz`}
                   totalBytes={lidarBytes}
                   what={{ type: "lidar" }}
                   label="Download .zip"

@@ -16,6 +16,18 @@ export function StatusBadge({ status }: { status: SessionStatus }) {
   );
 }
 
+/** For a stopped session: is everything in S3 yet (cloud_sync's _COMPLETE.json marker)? */
+export function UploadBadge({ upload, status }: { upload: "complete" | "uploading" | "unknown"; status: SessionStatus }) {
+  if (status !== "closed" || upload === "unknown") return null;
+  return upload === "complete" ? (
+    <span className="inline-flex items-center rounded-full bg-ok-soft px-2 py-0.5 text-xs font-medium text-ok">All uploaded</span>
+  ) : (
+    <span className="inline-flex items-center rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">
+      Still uploading
+    </span>
+  );
+}
+
 export function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-panel px-4 py-3">

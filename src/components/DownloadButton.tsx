@@ -5,8 +5,8 @@ import {
   counter,
   fetchFiles,
   joinedImu,
+  joinedLidar,
   joinedVideo,
-  lidarZip,
   pickSaveTarget,
   save,
   sessionZip,
@@ -64,7 +64,7 @@ export function DownloadButton({ apiBase, fileName, totalBytes, what, label, var
           : what.type === "imu"
             ? await joinedImu(files, add, abort.signal, missing)
             : what.type === "lidar"
-              ? lidarZip(files, folder, add, abort.signal, missing)
+              ? await joinedLidar(files, add, abort.signal, missing)
               : await sessionZip(files, folder, add, abort.signal, missing);
       await save(target, fileName, data);
 

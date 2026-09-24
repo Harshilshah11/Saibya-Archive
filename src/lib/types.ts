@@ -1,9 +1,13 @@
 // Shared domain types for the Saibya archive.
 //
 // Bucket layout (written by cloud_sync on the robot):
-//   <robot_id>/sessions/<session_id>/
+//   <robot_id>/sessions/<session_id>/           real sessions
+//   <robot_id>/sim/sessions/<session_id>/       bench simulation (shown as robot "<robot_id>-sim")
 //     session.json                     metadata; status/ended_at set when the session ends
-//     video/<cam>/*.ts                 DVR MPEG-TS segments overlapping the session
+//     upload_log.csv                   every upload of the session (written at the end)
+//     _COMPLETE.json                   uploaded LAST: every file of the session is in S3
+//     video/<cam>/<YYYYMMDD_HHMMSS>.ts DVR MPEG-TS segments overlapping the session
+//                                      (video_segment_s long: 600 s real, 60 s simulated)
 //     sensors/lidar/<YYYYMMDD_HHMMSS>.npz     LiDAR scans (robot local time)
 //     sensors/imu/<YYYYMMDD_HHMMSS>.csv.gz    IMU samples (robot local time)
 
@@ -41,8 +45,14 @@ export interface ArchiveFile {
 export interface Manifest {
   session_id?: string;
   robot_id?: string;
-  /** e.g. RECORDING, COMPLETED */
+  /** RUNNING while recording, then COMPLETED or CLOSED_ON_BOOT */
   status?: string;
+  /** true for cloud_sync bench-simulation sessions (synthetic data) */
+  simulated?: boolean;
+  /** sensor file length, seconds */
+  chunk_s?: number;
+  /** camera segment length, seconds (DVR_SEGMENT_S: 600 real, 60 simulated) */
+  video_segment_s?: number;
   started_at?: string;
   started_unix?: number;
   ended_at?: string | null;
@@ -67,6 +77,16 @@ export interface SessionSummary {
   /** epoch ms */
   end: number | null;
   durationSec: number | null;
+  /** Nominal camera segment length, seconds (from session.json, else VIDEO_SEGMENT_SECONDS) */
+  videoSegmentSec: number;
+  /** Synthetic data from cloud_sync's simulation mode */
+  simulated: boolean;
+  /**
+   * complete  — _COMPLETE.json present: every file of the session is in S3
+   * uploading — stopped, but the robot is still uploading (or offline)
+   * unknown   — recorded by a cloud_sync that did not write the marker yet
+   */
+  upload: "complete" | "uploading" | "unknown";
   cameras: string[];
   hasSensors: boolean;
   hasLidar: boolean;

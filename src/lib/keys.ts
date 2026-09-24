@@ -5,8 +5,32 @@ export const SESSIONS_DIR = "sessions";
 /** Session metadata written by the robot at start and rewritten when the session ends. */
 export const SESSION_FILE = "session.json";
 
+/** Uploaded LAST by cloud_sync, once every file of a stopped session is in S3. */
+export const COMPLETE_FILE = "_COMPLETE.json";
+
+/**
+ * cloud_sync's bench-simulation mode (CLOUD_SYNC_SIMULATE=1) writes synthetic sessions under
+ * <robot>/sim/sessions/ so they never mix with real data. The app shows them as a separate
+ * robot, "<robot>-sim".
+ */
+export const SIM_SUFFIX = "-sim";
+
+/** "saibya02" -> "saibya02", "saibya02-sim" -> "saibya02/sim" */
+export function robotBase(robotId: string): string {
+  return robotId.endsWith(SIM_SUFFIX) ? `${robotId.slice(0, -SIM_SUFFIX.length)}/sim` : robotId;
+}
+
+export function isSimulatedRobot(robotId: string): boolean {
+  return robotId.endsWith(SIM_SUFFIX);
+}
+
+/** "<base>/sessions/" — where a robot's session folders are listed. */
+export function sessionsPrefix(robotId: string): string {
+  return `${robotBase(robotId)}/${SESSIONS_DIR}/`;
+}
+
 export function sessionPrefix(robotId: string, sessionId: string): string {
-  return `${robotId}/${SESSIONS_DIR}/${sessionId}/`;
+  return `${sessionsPrefix(robotId)}${sessionId}/`;
 }
 
 /**

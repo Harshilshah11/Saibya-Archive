@@ -6,7 +6,7 @@ import { sortCameras } from "@/lib/keys";
 import type { DataType } from "@/lib/types";
 import { DownloadButton } from "@/components/DownloadButton";
 import { sessionHref } from "@/components/SessionTable";
-import { EmptyState, Panel, Pill, Stat, StatusBadge } from "@/components/ui";
+import { EmptyState, Panel, Pill, Stat, StatusBadge, UploadBadge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Data" };
 
@@ -152,6 +152,7 @@ export default async function DataPage({ searchParams }: Props) {
                       <td className="px-4 py-2.5">{formatDuration(s.durationSec)}</td>
                       <td className="px-4 py-2.5">
                         <StatusBadge status={s.status} />
+                        <UploadBadge status={s.status} upload={s.upload} />
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -180,7 +181,7 @@ export default async function DataPage({ searchParams }: Props) {
                               {lidarBytes > 0 && (
                                 <DownloadButton
                                   apiBase={apiBase}
-                                  fileName={`${base}_lidar.zip`}
+                                  fileName={`${base}_lidar.npz`}
                                   totalBytes={lidarBytes}
                                   what={{ type: "lidar" }}
                                   label="LiDAR .zip"

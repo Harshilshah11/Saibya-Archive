@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { connection } from "next/server";
 import { config } from "./config";
-import { classify, SESSION_FILE, SESSIONS_DIR, sessionPrefix, sortCameras } from "./keys";
+import { classify, COMPLETE_FILE, SESSION_FILE, SESSIONS_DIR, SIM_SUFFIX, sessionPrefix, sessionsPrefix, sortCameras } from "./keys";
 import { storage } from "./storage";
 import type {
   ArchiveFile,
@@ -37,8 +37,12 @@ const lastSegment = (prefix: string) => prefix.replace(/\/$/, "").split("/").pop
 export const listRobotIds = cache(async (): Promise<string[]> => {
   await connection();
   if (config.robotIds.length) return config.robotIds;
-  const prefixes = await storage.listPrefixes("");
-  return prefixes.map(lastSegment).filter(Boolean).sort();
+  const robots = (await storage.listPrefixes("")).map(lastSegment).filter(Boolean);
+  // A robot with bench-simulation sessions (<robot>/sim/sessions/) also appears as "<robot>-sim".
+  const sims = await mapLimit(robots, 4, async (r) =>
+    (await storage.listPrefixes(`${r}/sim/${SESSIONS_DIR}/`)).length ? `${r}${SIM_SUFFIX}` : null,
+  );
+  return [...robots, ...sims.filter((s): s is string => s !== null)].sort();
 });
 
 // A closed session (session.json marked as ended) never changes again, so its listing
@@ -91,7 +95,8 @@ export const getSession = cache(async (robotId: string, sessionId: string): Prom
   const hit = closedSummaries.get(id);
   if (hit && Date.now() - hit.at < CLOSED_TTL_MS) return hit.summary;
   const summary = await buildSession(robotId, sessionId);
-  if (summary?.status === "closed") {
+  // Cache only when nothing can change any more: closed AND fully uploaded (or a marker-less older session).
+  if (summary?.status === "closed" && summary.upload !== "uploading") {
     if (closedSummaries.size >= CLOSED_MAX) closedSummaries.delete(closedSummaries.keys().next().value!);
     closedSummaries.set(id, { at: Date.now(), summary });
     if (closedCache.size >= CLOSED_MAX) closedCache.delete(closedCache.keys().next().value!);
@@ -119,10 +124,15 @@ async function buildSession(robotId: string, sessionId: string): Promise<Session
     meta: { count: 0, bytes: 0 },
   };
   const cameras = new Set<string>();
+  // Simulated cameras write 60 s segments; sessions recorded before cloud_sync wrote
+  // video_segment_s into session.json fall back to that, real ones to the DVR's 600 s.
+  const videoSegmentSec =
+    positive(manifest?.video_segment_s) ?? (manifest?.simulated === true ? 60 : config.videoSegmentSec);
+  const sensorChunkSec = positive(manifest?.chunk_s) ?? config.chunkSec;
   let hasLidar = false;
   let hasImu = false;
   let firstChunk: number | null = null;
-  let lastChunk: number | null = null;
+  let chunkEnd: number | null = null;
   let lastUpload: number | null = null;
   for (const f of files) {
     stats[f.kind].count++;
@@ -131,14 +141,14 @@ async function buildSession(robotId: string, sessionId: string): Promise<Session
     if (f.sensor === "lidar") hasLidar = true;
     if (f.sensor === "imu") hasImu = true;
     if (f.start !== undefined) {
+      const len = (f.kind === "camera" ? videoSegmentSec : sensorChunkSec) * 1000;
       firstChunk = firstChunk === null ? f.start : Math.min(firstChunk, f.start);
-      lastChunk = lastChunk === null ? f.start : Math.max(lastChunk, f.start);
+      chunkEnd = chunkEnd === null ? f.start + len : Math.max(chunkEnd, f.start + len);
     }
     lastUpload = lastUpload === null ? f.lastModified : Math.max(lastUpload, f.lastModified);
   }
 
   const start = parseTime(manifest?.started_at, manifest?.started_unix) ?? firstChunk;
-  const chunkEnd = lastChunk === null ? null : lastChunk + config.chunkSec * 1000;
   const end = parseTime(manifest?.ended_at, manifest?.ended_unix) ?? chunkEnd;
 
   return {
@@ -148,6 +158,13 @@ async function buildSession(robotId: string, sessionId: string): Promise<Session
     start,
     end,
     durationSec: start !== null && end !== null ? Math.max(0, Math.round((end - start) / 1000)) : null,
+    videoSegmentSec,
+    simulated: manifest?.simulated === true,
+    upload: files.some((f) => f.name === COMPLETE_FILE)
+      ? "complete"
+      : manifest && "video_source" in manifest // cloud_sync versions that write the marker
+        ? "uploading"
+        : "unknown",
     cameras: sortCameras(cameras),
     hasSensors: stats.sensors.count > 0,
     hasLidar,
@@ -161,7 +178,7 @@ async function buildSession(robotId: string, sessionId: string): Promise<Session
 
 export const listSessions = cache(async (robotId: string): Promise<SessionSummary[]> => {
   await connection();
-  const prefixes = await storage.listPrefixes(`${robotId}/${SESSIONS_DIR}/`);
+  const prefixes = await storage.listPrefixes(sessionsPrefix(robotId));
   const sessions = await mapLimit(prefixes.map(lastSegment), 8, (id) => getSession(robotId, id));
   return sessions
     .filter((s): s is SessionSummary => s !== null)
@@ -200,18 +217,31 @@ export function withUrls(robotId: string, sessionId: string, files: ArchiveFile[
   return files.map((f) => ({ ...f, url: fileUrl(robotId, sessionId, f.name, download) }));
 }
 
-/** Camera chunks in time order with their durations, used for the HLS playlist and time sync. */
-export function cameraSegments(files: ArchiveFile[], camera: string): Array<ArchiveFile & CameraSegment> {
+/**
+ * Camera chunks in time order with their durations, used for the HLS playlist and time sync.
+ * `segmentSec` is the session's nominal segment length (SessionSummary.videoSegmentSec):
+ * 600 s for the real DVR, 60 s for simulated cameras.
+ */
+export function cameraSegments(
+  files: ArchiveFile[],
+  camera: string,
+  segmentSec: number = config.videoSegmentSec,
+): Array<ArchiveFile & CameraSegment> {
   const chunks = files
     .filter((f) => f.kind === "camera" && f.camera === camera && f.start !== undefined)
     .sort((a, b) => a.start! - b.start!);
   return chunks.map((f, i) => {
     const next = chunks[i + 1]?.start;
-    // a gap longer than a chunk means recording paused; keep the nominal length then
-    const gap = next !== undefined ? (next - f.start!) / 1000 : config.chunkSec;
-    const duration = gap > 0 && gap <= config.chunkSec * 1.5 ? gap : config.chunkSec;
+    // a gap longer than a segment means recording paused (or the camera dropped and
+    // the DVR restarted it early); keep the nominal length then
+    const gap = next !== undefined ? (next - f.start!) / 1000 : segmentSec;
+    const duration = gap > 0 && gap <= segmentSec * 1.5 ? gap : segmentSec;
     return { ...f, start: f.start!, duration };
   });
+}
+
+function positive(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
 }
 
 export const storageMode = () => storage.mode;

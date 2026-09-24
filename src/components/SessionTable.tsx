@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requestNow } from "@/lib/archive";
 import { formatAgo, formatBytes, formatDateTime, formatDuration } from "@/lib/format";
 import type { SessionSummary } from "@/lib/types";
-import { StatusBadge } from "./ui";
+import { StatusBadge, UploadBadge } from "./ui";
 
 export function sessionHref(s: Pick<SessionSummary, "robotId" | "sessionId">) {
   return `/robots/${encodeURIComponent(s.robotId)}/sessions/${encodeURIComponent(s.sessionId)}`;
@@ -51,7 +51,10 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
               </td>
               <td className="px-4 py-2.5 text-right">{formatBytes(s.totalBytes)}</td>
               <td className="px-4 py-2.5">
-                <StatusBadge status={s.status} />
+                <div className="flex flex-wrap gap-1">
+                  <StatusBadge status={s.status} />
+                  <UploadBadge status={s.status} upload={s.upload} />
+                </div>
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted">{formatAgo(s.lastUpload, now)}</td>
             </tr>

@@ -1,13 +1,14 @@
 import { downloadZip } from "client-zip";
 import { sortCameras } from "./keys";
+import { mergeLidar, readNpz, writeNpy } from "./npz";
 import type { SignedFile } from "./types";
 
 // Browser-side downloads. The robot uploads short chunks; here they are turned back
 // into one file per stream, straight from presigned S3 URLs (no server work):
 //   camera -> the .ts chunks joined byte-for-byte into one .ts (MPEG-TS concatenates cleanly)
 //   imu    -> the .csv.gz chunks decompressed and joined into one .csv (one header row)
-//   lidar  -> a ZIP of the .npz chunks (each is a self-contained numpy archive)
-//   session-> a ZIP with <cam>.ts per camera, imu.csv, lidar/*.npz and session.json
+//   lidar  -> the .npz chunks merged into one lidar.npz (t, offsets rebased, points)
+//   session-> a ZIP with <cam>.ts per camera, imu.csv, lidar.npz and session.json
 
 export type Progress = (doneBytes: number, currentFile: string) => void;
 
@@ -69,8 +70,6 @@ export function joinedVideo(
   });
 }
 
-const baseName = (name: string) => name.slice(name.lastIndexOf("/") + 1);
-
 async function gunzipIfNeeded(bytes: Uint8Array): Promise<Uint8Array> {
   // S3 may already have served it decoded (Content-Encoding: gzip); check the magic bytes
   if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return bytes;
@@ -111,14 +110,18 @@ export async function joinedImu(
   return new Blob([header ? header + "\n" : "", ...parts], { type: "text/csv" });
 }
 
-/** ZIP entries for files kept as they are, fetched one after another. */
-async function* rawEntries(
+/**
+ * LiDAR chunks (.npz) merged into ONE .npz with the same arrays as a chunk:
+ * t float64[S], offsets int64[S+1] (rebased across chunks), points float32[N,3].
+ * np.load(path) reads it as usual. Entries are stored uncompressed (~2.5 MB per minute).
+ */
+export async function joinedLidar(
   files: SignedFile[],
-  folder: string,
   add: (n: number, file: string) => void,
   signal: AbortSignal,
   missing: string[],
-) {
+): Promise<Blob> {
+  const chunks = [];
   for (const f of [...files].sort(byStart)) {
     const res = await fetch(f.url, { signal });
     if (!res.ok) {
@@ -126,27 +129,18 @@ async function* rawEntries(
       add(f.size, f.name);
       continue;
     }
-    const data = await res.blob();
-    add(data.size, f.name);
-    yield { name: `${folder}/${baseName(f.name)}`, input: data };
-  }
-}
-
-/** LiDAR chunks (.npz) as one ZIP. */
-export function lidarZip(
-  files: SignedFile[],
-  folder: string,
-  add: (n: number, file: string) => void,
-  signal: AbortSignal,
-  missing: string[],
-): ReadableStream<Uint8Array> {
-  async function* entries() {
-    yield* rawEntries(files, folder, add, signal, missing);
-    if (missing.length) {
-      yield { name: `${folder}/MISSING_FILES.txt`, input: `These chunks could not be downloaded:\n${missing.join("\n")}\n` };
+    const raw = new Uint8Array(await res.arrayBuffer());
+    add(raw.byteLength, f.name);
+    try {
+      chunks.push(await readNpz(raw));
+    } catch (e) {
+      missing.push(`${f.name} (unreadable: ${(e as Error).message})`);
     }
   }
-  return downloadZip(entries()).body!;
+  if (!chunks.length) throw new Error("No LiDAR chunk could be read");
+  const merged = mergeLidar(chunks);
+  const entries = Object.entries(merged).map(([name, arr]) => ({ name: `${name}.npy`, input: writeNpy(arr) }));
+  return downloadZip(entries).blob();
 }
 
 type SaveTarget = { write(chunk: Uint8Array | Blob): Promise<void>; close(): Promise<void>; abort(): Promise<void> };
@@ -199,7 +193,7 @@ export async function save(target: SaveTarget | "memory", fileName: string, data
   }
 }
 
-/** The whole session as one ZIP: one video per camera, imu.csv, lidar/*.npz, session.json. */
+/** The whole session as one ZIP: one video per camera, imu.csv, lidar.npz, session.json. */
 export async function sessionZip(
   files: SignedFile[],
   folder: string,
@@ -222,7 +216,9 @@ export async function sessionZip(
     if (imu.length) {
       yield { name: `${folder}/imu.csv`, input: await joinedImu(imu, add, signal, missing) };
     }
-    yield* rawEntries(lidar, `${folder}/lidar`, add, signal, missing);
+    if (lidar.length) {
+      yield { name: `${folder}/lidar.npz`, input: await joinedLidar(lidar, add, signal, missing) };
+    }
     for (const f of meta) {
       const res = await fetch(f.url, { signal });
       if (res.ok) yield { name: `${folder}/${f.name}`, input: await res.blob() };

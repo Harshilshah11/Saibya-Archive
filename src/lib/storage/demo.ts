@@ -79,13 +79,15 @@ function build(): { objects: ObjectInfo[]; texts: Map<string, string> } {
     const session = {
       session_id: s.sessionId,
       robot_id: s.robotId,
-      status: s.closed ? "COMPLETED" : "RECORDING",
+      status: s.closed ? "COMPLETED" : "RUNNING",
       started_at: iso(s.start),
       started_unix: s.start / 1000,
       ended_at: s.closed ? iso(end) : null,
       ended_unix: s.closed ? end / 1000 : null,
       stop_reason: s.closed ? "OPERATOR_STOP" : null,
       max_duration_h: 4.0,
+      chunk_s: config.chunkSec,
+      video_segment_s: config.chunkSec,
       s3_prefix: `s3://demo/${prefix}`,
       streams: {
         lidar: "sensors/lidar/*.npz — t float64[S] unix, offsets int64[S+1], points float32[N,3] (angle_deg body 0=front CW, range_m, quality)",
