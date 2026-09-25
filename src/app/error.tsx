@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 
 type Health = { ok: boolean; hint?: string; error?: string };
 
-// Page-level error. Production builds hide server error messages, so the S3 diagnosis
-// comes from /api/health.
+// Page-level error. Production builds hide server error messages, so the diagnosis
+// comes from the Server's /api/health (proxied, see next.config.ts).
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [health, setHealth] = useState<Health | null>(null);
   useEffect(() => {
@@ -13,7 +13,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     fetch("/api/health")
       .then((r) => r.json())
       .then(setHealth)
-      .catch(() => setHealth({ ok: false, hint: "The app server isn't responding." }));
+      .catch(() => setHealth({ ok: false, hint: "The Server (API on EC2) isn't responding. Check that it is running, or API_URL in .env.local." }));
   }, [error]);
 
   return (

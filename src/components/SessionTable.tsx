@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requestNow } from "@/lib/archive";
+import { requestNow } from "@/lib/api";
 import { formatAgo, formatBytes, formatDateTime, formatDuration } from "@/lib/format";
 import type { SessionSummary } from "@/lib/types";
 import { StatusBadge, UploadBadge } from "./ui";

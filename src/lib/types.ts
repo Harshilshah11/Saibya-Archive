@@ -130,3 +130,62 @@ export interface CameraSegment {
   /** seconds */
   duration: number;
 }
+
+// ── API responses (Server -> web app) ────────────────────────────────────────
+
+/** GET /api/info */
+export interface ApiInfo {
+  service: string;
+  /** "demo" = generated data, no bucket configured */
+  mode: "s3" | "demo";
+  index: "db" | "s3";
+  /** open session with no upload for this long -> "interrupted" */
+  interruptedAfterMin: number;
+}
+
+/** GET /api/robots/:robotId */
+export interface RobotDetail {
+  robotId: string;
+  sessions: SessionSummary[];
+  link: RobotLinkInfo | null;
+}
+
+/** One camera of a session, as the player and the download rows need it. */
+export interface CameraTrack {
+  name: string;
+  segments: CameraSegment[];
+  bytes: number;
+  /** summed segment length, seconds */
+  seconds: number;
+}
+
+/** GET /api/robots/:robotId/sessions/:sessionId */
+export interface SessionDetail {
+  session: SessionSummary;
+  /** every file, with download URLs */
+  files: SignedFile[];
+  cameras: CameraTrack[];
+}
+
+/** One session on the /data page: per-stream sizes. */
+export interface DataRow {
+  robotId: string;
+  sessionId: string;
+  trip: string | null;
+  start: number | null;
+  durationSec: number | null;
+  status: SessionStatus;
+  upload: "complete" | "uploading" | "unknown";
+  simulated: boolean;
+  cameras: Array<{ camera: string; bytes: number }>;
+  imuBytes: number;
+  lidarBytes: number;
+  /** everything in the session, including session.json */
+  totalBytes: number;
+}
+
+/** GET /api/data */
+export interface DataIndex {
+  robots: string[];
+  rows: DataRow[];
+}

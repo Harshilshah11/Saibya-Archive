@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listRobots, requestNow } from "@/lib/archive";
+import { listRobots, requestNow } from "@/lib/api";
 import { formatAgo, formatBytes } from "@/lib/format";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { SessionTable } from "@/components/SessionTable";

@@ -4,25 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatBytes, formatClock, formatDateTime, formatDuration } from "@/lib/format";
 import { DEFAULT_FILTERS as DEFAULTS, type DataView, type Filters } from "@/lib/dataFilters";
-import type { SessionStatus } from "@/lib/types";
+import type { DataRow } from "@/lib/types";
 import { DownloadButton } from "./DownloadButton";
 import { StatusBadge, UploadBadge } from "./ui";
-
-export interface DataRow {
-  robotId: string;
-  sessionId: string;
-  trip: string | null;
-  start: number | null;
-  durationSec: number | null;
-  status: SessionStatus;
-  upload: "complete" | "uploading" | "unknown";
-  simulated: boolean;
-  cameras: Array<{ camera: string; bytes: number }>;
-  imuBytes: number;
-  lidarBytes: number;
-  /** everything in the session, including session.json */
-  totalBytes: number;
-}
 
 const TYPES: Array<{ value: DataView; label: string; blurb: string }> = [
   { value: "all", label: "All data", blurb: "Whole session as one .zip · every camera, IMU, LiDAR, session.json" },

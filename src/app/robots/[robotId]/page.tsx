@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRobotLink, listRobotIds, listSessions } from "@/lib/archive";
+import { getRobot } from "@/lib/api";
 import { formatAgo, formatBytes } from "@/lib/format";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { RobotAlerts } from "@/components/RobotAlerts";
@@ -33,9 +33,10 @@ export default async function RobotPage({ params, searchParams }: Props) {
   const status = FILTERS.some((f) => f.value === sp.status) ? sp.status : undefined;
   const q = sp.q?.trim().toLowerCase() || undefined;
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : undefined;
-  if (!(await listRobotIds()).includes(robotId)) notFound();
+  const robot = await getRobot(robotId);
+  if (!robot) notFound();
 
-  const [all, robotLink] = await Promise.all([listSessions(robotId), getRobotLink(robotId)]);
+  const { sessions: all, link: robotLink } = robot;
   const base = `/robots/${encodeURIComponent(robotId)}`;
   // search and date narrow the list first; the status pills count within that
   const searched = all.filter(

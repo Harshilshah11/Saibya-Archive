@@ -1,59 +1,7 @@
-import type { ArchiveFile, FileKind, ObjectInfo, SensorKind } from "./types";
-
-export const SESSIONS_DIR = "sessions";
+// Session file names and chunk times, as the Server (server branch, lib/keys.ts) defines them.
 
 /** Session metadata written by the robot at start and rewritten when the session ends. */
 export const SESSION_FILE = "session.json";
-
-/** Uploaded LAST by cloud_sync, once every file of a stopped session is in S3. */
-export const COMPLETE_FILE = "_COMPLETE.json";
-
-/**
- * cloud_sync's bench-simulation mode (CLOUD_SYNC_SIMULATE=1) writes synthetic sessions under
- * <robot>/sim/sessions/ so they never mix with real data. The app shows them as a separate
- * robot, "<robot>-sim".
- */
-export const SIM_SUFFIX = "-sim";
-
-/** "saibya02" -> "saibya02", "saibya02-sim" -> "saibya02/sim" */
-export function robotBase(robotId: string): string {
-  return robotId.endsWith(SIM_SUFFIX) ? `${robotId.slice(0, -SIM_SUFFIX.length)}/sim` : robotId;
-}
-
-export function isSimulatedRobot(robotId: string): boolean {
-  return robotId.endsWith(SIM_SUFFIX);
-}
-
-/** "<base>/sessions/" — where a robot's session folders are listed. */
-export function sessionsPrefix(robotId: string): string {
-  return `${robotBase(robotId)}/${SESSIONS_DIR}/`;
-}
-
-export function sessionPrefix(robotId: string, sessionId: string): string {
-  return `${sessionsPrefix(robotId)}${sessionId}/`;
-}
-
-/** Physical robot of an app robot id: "saibya02-sim" -> "saibya02" (the device that uploaded it). */
-export function robotOwner(robotId: string): string {
-  return isSimulatedRobot(robotId) ? robotId.slice(0, -SIM_SUFFIX.length) : robotId;
-}
-
-export interface SessionKey {
-  /** Top-level prefix = the robot that uploaded it, e.g. "saibya02" */
-  owner: string;
-  /** App robot id, e.g. "saibya02" or "saibya02-sim" */
-  robotId: string;
-  sessionId: string;
-  /** Path inside the session folder */
-  name: string;
-}
-
-/** "saibya02/sim/sessions/<id>/video/cam1/x.ts" -> { owner: "saibya02", robotId: "saibya02-sim", ... } */
-export function parseSessionKey(key: string): SessionKey | null {
-  const m = /^([^/]+)\/(sim\/)?sessions\/([^/]+)\/(.+)$/.exec(key);
-  if (!m || m[4].split("/").some((p) => !p || p === "." || p === "..")) return null;
-  return { owner: m[1], robotId: m[2] ? m[1] + SIM_SUFFIX : m[1], sessionId: m[3], name: m[4] };
-}
 
 /**
  * Chunk name -> epoch ms. Two forms:
@@ -71,54 +19,6 @@ export function parseChunkTime(stem: string, localOffsetMin = 0): number | undef
 /** epoch ms -> "20260923T090000Z" */
 export function formatChunkTime(ms: number): string {
   return new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-}
-
-// Session layout (written by cloud_sync on the robot):
-//   video/<cam>/<name>.ts          camera segments
-//   sensors/lidar/<stamp>.npz      LiDAR scans
-//   sensors/imu/<stamp>.csv.gz     IMU samples
-//   session.json                   metadata
-export function classify(obj: ObjectInfo, prefix: string, localOffsetMin = 0): ArchiveFile | null {
-  const name = obj.key.slice(prefix.length);
-  if (!name || name.endsWith("/")) return null;
-  const parts = name.split("/");
-  const base = parts[parts.length - 1];
-  if (base.endsWith(".part") || base.endsWith(".tmp")) return null; // still being written
-  const stem = base.replace(/\..*$/, "");
-  let kind: FileKind = "meta";
-  let camera: string | undefined;
-  let sensor: SensorKind | undefined;
-
-  if (parts.length === 3 && parts[0] === "video" && base.endsWith(".ts")) {
-    kind = "camera";
-    camera = parts[1];
-  } else if (parts.length === 3 && parts[0] === "sensors" && parts[1] === "lidar" && base.endsWith(".npz")) {
-    kind = "sensors";
-    sensor = "lidar";
-  } else if (parts.length === 3 && parts[0] === "sensors" && parts[1] === "imu" && /\.csv(\.gz)?$/.test(base)) {
-    kind = "sensors";
-    sensor = "imu";
-  }
-
-  return {
-    key: obj.key,
-    name,
-    kind,
-    camera,
-    sensor,
-    start: kind === "meta" ? undefined : parseChunkTime(stem, localOffsetMin),
-    size: obj.size,
-    lastModified: obj.lastModified.getTime(),
-  };
-}
-
-/** Content-Type for a session file, from its extension. */
-export function contentTypeFor(name: string): string {
-  if (name.endsWith(".ts")) return "video/mp2t";
-  if (name.endsWith(".json")) return "application/json";
-  if (name.endsWith(".csv")) return "text/csv";
-  if (name.endsWith(".gz")) return "application/gzip";
-  return "application/octet-stream";
 }
 
 /** cam1, cam2, … cam10 in numeric order; other names alphabetically after them. */

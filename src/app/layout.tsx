@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { demoMode } from "@/lib/config";
+import { getInfo } from "@/lib/api";
 import { NavLink } from "@/components/NavLink";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
@@ -26,7 +26,9 @@ export const viewport: Viewport = {
 // The browser-chrome colour is synced once the <meta name="theme-color"> tags exist.
 const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // the badge is optional: a Server that is down must not take the whole shell with it
+  const demoMode = (await getInfo().catch(() => null))?.mode === "demo";
   return (
     <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <head>
@@ -49,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               {demoMode && (
                 <span
                   className="hidden rounded-full bg-warn-soft px-2.5 py-1 text-xs font-medium text-warn sm:inline"
-                  title="Set S3_BUCKET in .env.local to read the real archive"
+                  title="The Server has no S3 bucket configured and serves generated data"
                 >
                   Demo data
                 </span>

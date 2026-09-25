@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cameraSegments, getSession, listSessionFiles, requestNow, storageMode, withUrls } from "@/lib/archive";
-import { config } from "@/lib/config";
+import { getInfo, getSession, requestNow } from "@/lib/api";
 import { parseChunkTime, SESSION_FILE } from "@/lib/keys";
 import { formatAgo, formatBytes, formatDateTime, formatDuration } from "@/lib/format";
 import { AutoRefresh } from "@/components/AutoRefresh";
@@ -26,29 +25,19 @@ export default async function SessionPage({ params, searchParams }: Props) {
   const sessionId = decodeURIComponent(p.sessionId);
   const { t } = await searchParams;
 
-  const session = await getSession(robotId, sessionId);
-  if (!session) notFound();
-  const files = await listSessionFiles(robotId, sessionId);
-  const signed = withUrls(robotId, sessionId, files, true);
+  const [detail, info] = await Promise.all([getSession(robotId, sessionId), getInfo()]);
+  if (!detail) notFound();
+  // files carry download URLs (?download=1); cameras carry the player's segments
+  const { session, files, cameras } = detail;
 
   const apiBase = `/api/robots/${encodeURIComponent(robotId)}/sessions/${encodeURIComponent(sessionId)}`;
   const base = `${robotId}_${sessionId}`;
-  const cameras = session.cameras.map((name) => {
-    const segs = cameraSegments(files, name, session.videoSegmentSec);
-    const all = files.filter((f) => f.camera === name);
-    return {
-      name,
-      segments: segs.map(({ start, duration }) => ({ start, duration })),
-      bytes: all.reduce((n, f) => n + f.size, 0),
-      seconds: segs.reduce((n, s) => n + s.duration, 0),
-    };
-  });
   // DVR segments may start before and end after the session, so the timeline covers both
   const segStarts = cameras.flatMap((c) => c.segments.map((s) => s.start));
   const segEnds = cameras.flatMap((c) => c.segments.map((s) => s.start + s.duration * 1000));
   const start = Math.min(session.start ?? requestNow(), ...segStarts);
   const end = Math.max(session.end ?? start, start + 1000, ...segEnds);
-  const sessionFile = signed.find((f) => f.name === SESSION_FILE);
+  const sessionFile = files.find((f) => f.name === SESSION_FILE);
   const imuBytes = files.filter((f) => f.sensor === "imu").reduce((n, f) => n + f.size, 0);
   const lidarBytes = files.filter((f) => f.sensor === "lidar").reduce((n, f) => n + f.size, 0);
 
@@ -90,13 +79,13 @@ export default async function SessionPage({ params, searchParams }: Props) {
         )}
         {session.status === "interrupted" && (
           <p className="mt-2 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">
-            session.json was never marked as ended and nothing was uploaded for over {config.interruptedAfterMin} minutes. The robot probably lost
+            session.json was never marked as ended and nothing was uploaded for over {info?.interruptedAfterMin ?? 30} minutes. The robot probably lost
             power or network. Everything uploaded is still playable and downloadable.
           </p>
         )}
       </div>
 
-      <SessionPlayer apiBase={apiBase} start={start} end={end} demo={storageMode() === "demo"}
+      <SessionPlayer apiBase={apiBase} start={start} end={end} demo={info?.mode === "demo"}
         cameras={cameras}
         initialTime={t ? parseChunkTime(t) : undefined}
       />
@@ -189,7 +178,7 @@ export default async function SessionPage({ params, searchParams }: Props) {
         </summary>
         <div className="grid gap-3 border-t border-border p-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div className="rounded-md border border-border">
-            <FileList files={signed} />
+            <FileList files={files} />
           </div>
           <pre className="max-h-96 overflow-auto rounded-md border border-border p-3 font-mono text-xs leading-relaxed text-muted">
             {session.manifest ? JSON.stringify(session.manifest, null, 2) : "No session.json uploaded yet."}
