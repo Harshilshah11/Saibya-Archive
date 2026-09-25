@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { listRobotIds, listSessions } from "@/lib/archive";
+import { getRobotLink, listRobotIds, listSessions } from "@/lib/archive";
 import { formatAgo, formatBytes } from "@/lib/format";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { RobotAlerts } from "@/components/RobotAlerts";
 import type { SessionStatus } from "@/lib/types";
 import { SessionTable } from "@/components/SessionTable";
 import { Crumbs, EmptyState, PageHeader, Panel, Pill, Stat } from "@/components/ui";
@@ -34,7 +35,7 @@ export default async function RobotPage({ params, searchParams }: Props) {
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : undefined;
   if (!(await listRobotIds()).includes(robotId)) notFound();
 
-  const all = await listSessions(robotId);
+  const [all, robotLink] = await Promise.all([listSessions(robotId), getRobotLink(robotId)]);
   const base = `/robots/${encodeURIComponent(robotId)}`;
   // search and date narrow the list first; the status pills count within that
   const searched = all.filter(
@@ -67,6 +68,7 @@ export default async function RobotPage({ params, searchParams }: Props) {
         <PageHeader title={robotId} mono>
           {all.some((s) => s.status === "active") && <AutoRefresh />}
         </PageHeader>
+        <RobotAlerts link={robotLink} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

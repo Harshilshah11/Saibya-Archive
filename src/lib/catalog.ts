@@ -109,6 +109,12 @@ export async function storedFile(key: string): Promise<{ size: number; sha256: s
   return r ? { size: Number(r.size), sha256: (r.sha256 as string | null) ?? null } : null;
 }
 
+/** True once _COMPLETE.json is indexed: every file of the session is in S3 and none may change. */
+export async function sessionComplete(robotId: string, sessionId: string): Promise<boolean> {
+  const [r] = await sql()`select complete from sessions where robot_id = ${robotId} and session_id = ${sessionId}`;
+  return r?.complete === true;
+}
+
 /**
  * After a failed upload overwrote the S3 object with bytes that don't match, drop the stored
  * hash so the robot's retry is uploaded again instead of being taken for a duplicate.

@@ -3,7 +3,7 @@ import { pipeline, Readable, Transform } from "node:stream";
 import type { ReadableStream as NodeWebStream } from "node:stream/web";
 import { NextResponse, type NextRequest } from "next/server";
 import { bearer, robotForToken } from "@/lib/auth";
-import { forgetSha256, ingest, storedFile } from "@/lib/catalog";
+import { forgetSha256, ingest, sessionComplete, storedFile } from "@/lib/catalog";
 import { config, demoMode } from "@/lib/config";
 import { dbEnabled } from "@/lib/db";
 import { classify, COMPLETE_FILE, contentTypeFor, parseSessionKey, SESSION_FILE } from "@/lib/keys";
@@ -19,8 +19,11 @@ import { putObjectStream } from "@/lib/storage/s3";
 //   Content-Length: <bytes>            <raw file bytes>
 // -> 200 { key, size, etag }   stored (the robot may now delete its copy)
 //    400 bad key / hash or size mismatch · 401 bad token · 403 key outside the token's robot
-//    413 too big · 5xx retry later
+//    409 would change stored data · 413 too big · 5xx retry later
 // Idempotent: the same key with the same sha256 returns 200 again without re-uploading.
+// Overwrite protection: a stored file never changes (a different sha256 for its key is 409),
+// and once a session is complete nothing in it can be added or replaced. The one exception is
+// session.json, which the robot rewrites when the session stops.
 // The body is hashed while it streams into S3, so memory stays flat for any file size.
 
 export const runtime = "nodejs";
@@ -63,6 +66,12 @@ export async function PUT(req: NextRequest) {
   if (prev && prev.sha256 === want && (length === null || prev.size === length)) {
     await req.body?.cancel().catch(() => {});
     return NextResponse.json({ key, size: prev.size, etag: null, duplicate: true });
+  }
+  if (await sessionComplete(parsed.robotId, parsed.sessionId)) {
+    return fail(409, "Session is complete: its files can no longer change", { key });
+  }
+  if (prev?.sha256 && parsed.name !== SESSION_FILE) {
+    return fail(409, "Already stored with different content: stored files never change", { key });
   }
 
   // Count, hash and cap the bytes on their way to S3. session.json is also kept in memory
