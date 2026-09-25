@@ -60,3 +60,6 @@ create table if not exists files (
   foreign key (robot_id, session_id) references sessions (robot_id, session_id) on delete cascade
 );
 create index if not exists files_session_idx on files (robot_id, session_id);
+
+-- v4: sha256 (hex) the robot sent with PUT /api/ingest/upload; null for files indexed another way.
+alter table files add column if not exists sha256 text;

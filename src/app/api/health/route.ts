@@ -25,10 +25,16 @@ export async function GET() {
   } catch (err) {
     const e = err as { name?: string; message?: string; code?: string };
     const text = `${e.name ?? ""} ${e.code ?? ""} ${e.message ?? ""}`;
+    // On the Server there are no keys: credentials come from the EC2 instance's IAM role.
+    const keys = Boolean(config.accessKeyId);
     const hint = /AccessDenied|Forbidden/i.test(text)
-      ? "The webapp-reader key is missing s3:ListBucket or s3:GetObject on the bucket."
+      ? keys
+        ? "The access key is missing s3:ListBucket or s3:GetObject on the bucket."
+        : "The instance's IAM role is missing s3:ListBucket / GetObject / PutObject on the bucket."
       : /InvalidAccessKeyId|SignatureDoesNotMatch|CredentialsProviderError|Could not load credentials/i.test(text)
-        ? "The access key is wrong or missing. Check S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
+        ? keys
+          ? "The access key is wrong. Check S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
+          : "No AWS credentials. Attach the saibya-archive-server IAM role to the EC2 instance."
         : /NoSuchBucket/i.test(text)
           ? `Bucket "${config.bucket}" doesn't exist. Check S3_BUCKET.`
           : /PermanentRedirect|AuthorizationHeaderMalformed|region/i.test(text)

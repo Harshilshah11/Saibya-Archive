@@ -20,6 +20,8 @@ export const config = {
     .map((s) => s.trim())
     .filter(Boolean),
   presignExpiresSec: num(env.PRESIGN_EXPIRES_SECONDS, 3600),
+  /** PUT /api/ingest/upload rejects bodies larger than this with 413. */
+  uploadMaxBytes: num(env.UPLOAD_MAX_MB, 100) * 1024 * 1024,
   /** A session whose session.json is not marked ended, with no upload for this long, is "interrupted". */
   interruptedAfterMin: num(env.INTERRUPTED_AFTER_MINUTES, 30),
   /** Nominal sensor chunk length written by cloud_sync. */

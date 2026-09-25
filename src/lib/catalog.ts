@@ -4,7 +4,7 @@ import { sql } from "./db";
 import { classify, COMPLETE_FILE, parseSessionKey, SESSION_FILE } from "./keys";
 import type { ArchiveFile, FileKind, Manifest, RobotLinkInfo, SensorKind } from "./types";
 
-// The v3 index in Postgres. Writes come from the robots (POST /api/ingest) and from the
+// The index in Postgres. Writes come from the robots (PUT /api/ingest/upload, v3 POST /api/ingest) and from the
 // S3 re-index (POST /api/admin/reindex); reads serve every page in place of S3 listings.
 
 /** One uploaded S3 object, as reported by cloud_sync (or found by the re-index). */
@@ -15,6 +15,8 @@ export interface IngestEvent {
   uploaded_at?: string | number;
   /** session.json contents, sent along with the session.json upload */
   manifest?: Manifest | null;
+  /** sha256 (hex) of the bytes, when the Server stored them itself (PUT /api/ingest/upload) */
+  sha256?: string | null;
 }
 
 export interface IngestResult {
@@ -89,15 +91,30 @@ export async function ingest(events: IngestEvent[], owner: string | null): Promi
         await tx`update sessions set complete = true, updated_at = now()
                  where robot_id = ${robotId} and session_id = ${sessionId}`;
       }
-      await tx`insert into files (key, robot_id, session_id, name, kind, camera, sensor, chunk_start, size, uploaded_at)
+      await tx`insert into files (key, robot_id, session_id, name, kind, camera, sensor, chunk_start, size, uploaded_at, sha256)
                values (${file.key}, ${robotId}, ${sessionId}, ${file.name}, ${file.kind}, ${file.camera ?? null},
                        ${file.sensor ?? null}, ${file.start === undefined ? null : new Date(file.start)},
-                       ${file.size}, ${new Date(file.lastModified)})
-               on conflict (key) do update set size = excluded.size, uploaded_at = excluded.uploaded_at`;
+                       ${file.size}, ${new Date(file.lastModified)}, ${ev.sha256 ?? null})
+               on conflict (key) do update set size = excluded.size, uploaded_at = excluded.uploaded_at,
+                                               sha256 = coalesce(excluded.sha256, files.sha256)`;
       result.accepted++;
     }
   });
   return result;
+}
+
+/** The indexed size and sha256 of one object, or null when it isn't indexed. */
+export async function storedFile(key: string): Promise<{ size: number; sha256: string | null } | null> {
+  const [r] = await sql()`select size, sha256 from files where key = ${key}`;
+  return r ? { size: Number(r.size), sha256: (r.sha256 as string | null) ?? null } : null;
+}
+
+/**
+ * After a failed upload overwrote the S3 object with bytes that don't match, drop the stored
+ * hash so the robot's retry is uploaded again instead of being taken for a duplicate.
+ */
+export async function forgetSha256(key: string): Promise<void> {
+  await sql()`update files set sha256 = null where key = ${key}`;
 }
 
 /** Robot heartbeat: cloud_sync's status (backlog, disk, alerts, current session). */

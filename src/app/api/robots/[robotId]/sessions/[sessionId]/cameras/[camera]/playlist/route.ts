@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { cameraSegments, fileUrl, getSession, listSessionFiles } from "@/lib/archive";
 
 // HLS VOD playlist over the .ts segments of one camera (10 min from the real DVR,
-// 1 min from simulated cameras — the session's video_segment_s). Each segment URL
-// redirects to a freshly presigned S3 URL, so the video comes straight from S3 and
-// long viewing sessions never hit an expired link.
+// 1 min from simulated cameras — the session's video_segment_s). Each segment URL is the
+// object route, which streams the bytes from S3 through the Server; nothing expires.
 // Every chunk starts with EXT-X-DISCONTINUITY: ffmpeg's segmenter may reset
 // timestamps per file, and this keeps hls.js from mis-placing segments.
 export async function GET(

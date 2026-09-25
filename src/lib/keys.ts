@@ -112,6 +112,15 @@ export function classify(obj: ObjectInfo, prefix: string, localOffsetMin = 0): A
   };
 }
 
+/** Content-Type for a session file, from its extension. */
+export function contentTypeFor(name: string): string {
+  if (name.endsWith(".ts")) return "video/mp2t";
+  if (name.endsWith(".json")) return "application/json";
+  if (name.endsWith(".csv")) return "text/csv";
+  if (name.endsWith(".gz")) return "application/gzip";
+  return "application/octet-stream";
+}
+
 /** cam1, cam2, … cam10 in numeric order; other names alphabetically after them. */
 export function sortCameras(cams: Iterable<string>): string[] {
   const num = (c: string) => (/^cam(\d+)$/.exec(c) ? Number(c.slice(3)) : Infinity);

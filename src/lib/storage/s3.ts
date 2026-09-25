@@ -5,7 +5,9 @@ import {
   NoSuchKey,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "node:stream";
 import { config } from "../config";
 import type { ObjectInfo } from "../types";
 import type { Storage } from "./index";
@@ -18,9 +20,23 @@ function s3(): S3Client {
     credentials:
       config.accessKeyId && config.secretAccessKey
         ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
-        : undefined, // fall back to the default AWS credential chain
+        : undefined, // default chain: the EC2 instance's IAM role on the Server
   });
   return client;
+}
+
+/** Streams a body into S3 (multipart above 5 MB, so memory stays flat). Returns the ETag. */
+export async function putObjectStream(key: string, body: Readable, contentType: string): Promise<string> {
+  const res = await new Upload({
+    client: s3(),
+    params: { Bucket: config.bucket, Key: key, Body: body, ContentType: contentType },
+  }).done();
+  return (res.ETag ?? "").replace(/"/g, "");
+}
+
+/** GetObject with an optional HTTP Range header ("bytes=0-1023"), for streaming to the browser. */
+export async function getObjectRange(key: string, range?: string) {
+  return s3().send(new GetObjectCommand({ Bucket: config.bucket, Key: key, Range: range }));
 }
 
 export const s3Storage: Storage = {
