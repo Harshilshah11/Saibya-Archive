@@ -73,8 +73,10 @@ arnobot-saibya-data/
 ```bash
 npm install
 cp .env.example .env.local   # fill in, or leave S3_BUCKET empty for demo data
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3100
 ```
+
+Port 3100 leaves 3000 for the web app. Point the web app at this Server with `API_URL=http://localhost:3100` in its `.env.local`. Without `DATABASE_URL` it reads S3 directly, so no local Postgres is needed; the robot ingest routes need the database.
 
 ## Deploy (EC2)
 
