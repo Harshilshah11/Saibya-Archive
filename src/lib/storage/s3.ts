@@ -7,6 +7,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import dns from "node:dns";
+import { Agent } from "node:https";
 import type { Readable } from "node:stream";
 import { config } from "../config";
 import type { ObjectInfo } from "../types";
@@ -14,9 +16,21 @@ import type { Storage } from "./index";
 
 let client: S3Client | null = null;
 
+// IPv4 addresses first: on NAT64 networks (some ISPs, phone hotspots) S3 resolves to 64:ff9b::
+// addresses first, and connections through that gateway sometimes stall or reset.
+const ipv4First: typeof dns.lookup = ((host: string, options: dns.LookupOptions, cb: never) =>
+  dns.lookup(host, { ...options, order: "ipv4first" }, cb)) as typeof dns.lookup;
+
 function s3(): S3Client {
   client ??= new S3Client({
     region: config.region,
+    // The SDK has no timeouts by default, so one stalled connection held a page for over a minute.
+    // Give up on a connect after 3 s (the SDK retries it), and on a socket idle for 30 s.
+    requestHandler: {
+      connectionTimeout: 3000,
+      socketTimeout: 30_000,
+      httpsAgent: new Agent({ keepAlive: true, maxSockets: 50, lookup: ipv4First }),
+    },
     credentials:
       config.accessKeyId && config.secretAccessKey
         ? { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }

@@ -68,9 +68,23 @@ export async function listStorageSessionIds(robotId: string): Promise<string[]> 
   return (await storage.listPrefixes(sessionsPrefix(robotId))).map(lastSegment);
 }
 
+// v2 only: robot and session folders change only when one is added, so page loads (and the
+// live 30 s refresh) reuse a listing for a few seconds instead of re-listing the bucket each time.
+const LIST_TTL_MS = 15_000;
+const listCache = new Map<string, { at: number; ids: Promise<string[]> }>();
+
+function cachedIds(key: string, load: () => Promise<string[]>): Promise<string[]> {
+  const hit = listCache.get(key);
+  if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.ids;
+  const ids = load();
+  listCache.set(key, { at: Date.now(), ids });
+  ids.catch(() => listCache.delete(key)); // never keep a failed listing
+  return ids;
+}
+
 export const listRobotIds = cache(async (): Promise<string[]> => {
   await connection();
-  return dbEnabled ? catalog.robotIds() : listStorageRobotIds();
+  return dbEnabled ? catalog.robotIds() : cachedIds("", listStorageRobotIds);
 });
 
 // v2 only: a closed session (session.json marked as ended) never changes again, so its
@@ -268,7 +282,8 @@ export const listSessions = cache(async (robotId: string): Promise<SessionSummar
     const link = await robotLink(robotId);
     sessions = (await catalog.sessionRows(robotId)).map((row) => summarize(robotId, row.sessionId, { ...row, link }));
   } else {
-    sessions = await mapLimit(await listStorageSessionIds(robotId), 8, (id) => getSession(robotId, id));
+    const ids = await cachedIds(robotId, () => listStorageSessionIds(robotId));
+    sessions = await mapLimit(ids, 8, (id) => getSession(robotId, id));
   }
   return sessions
     .filter((s): s is SessionSummary => s !== null)
