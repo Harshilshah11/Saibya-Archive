@@ -6,7 +6,7 @@ import { bearer, robotForToken } from "@/lib/auth";
 import { forgetSha256, ingest, storedFile } from "@/lib/catalog";
 import { config, demoMode } from "@/lib/config";
 import { dbEnabled } from "@/lib/db";
-import { classify, contentTypeFor, parseSessionKey, SESSION_FILE } from "@/lib/keys";
+import { classify, COMPLETE_FILE, contentTypeFor, parseSessionKey, SESSION_FILE } from "@/lib/keys";
 import type { Manifest } from "@/lib/types";
 import { putObjectStream } from "@/lib/storage/s3";
 
@@ -25,6 +25,11 @@ import { putObjectStream } from "@/lib/storage/s3";
 
 export const runtime = "nodejs";
 
+// The only non-data files cloud_sync writes. Data files must be video/<cam>/*.ts,
+// sensors/lidar/*.npz or sensors/imu/*.csv[.gz] (classify() decides), so a robot token
+// can't be used to park arbitrary files in the bucket.
+const META_FILES = new Set([SESSION_FILE, COMPLETE_FILE, "upload_log.csv"]);
+
 const fail = (status: number, error: string, extra: Record<string, unknown> = {}) =>
   NextResponse.json({ error, ...extra }, { status });
 
@@ -37,8 +42,10 @@ export async function PUT(req: NextRequest) {
   const key = req.headers.get("x-object-key") ?? "";
   const parsed = parseSessionKey(key);
   const prefix = parsed ? key.slice(0, key.length - parsed.name.length) : "";
-  if (!parsed || !classify({ key, size: 0, lastModified: new Date() }, prefix)) {
-    return fail(400, "Bad X-Object-Key: expected <robot>/[sim/]sessions/<session>/<path>");
+  const file = parsed ? classify({ key, size: 0, lastModified: new Date() }, prefix) : null;
+  if (!parsed || !file) return fail(400, "Bad X-Object-Key: expected <robot>/[sim/]sessions/<session>/<path>");
+  if (file.kind === "meta" && !META_FILES.has(parsed.name)) {
+    return fail(400, `Not a session file: ${parsed.name} (expected video, LiDAR, IMU or ${[...META_FILES].join(", ")})`);
   }
   if (parsed.owner !== robot) return fail(403, `Token is for robot ${robot}`, { key });
 
