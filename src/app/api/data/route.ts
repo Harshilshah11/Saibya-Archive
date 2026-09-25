@@ -1,17 +1,12 @@
-import type { Metadata } from "next";
+import { NextResponse } from "next/server";
 import { listRobots, listSessionFiles } from "@/lib/archive";
 import { sortCameras } from "@/lib/keys";
-import { parseFilters } from "@/lib/dataFilters";
-import { DataBrowser, type DataRow } from "@/components/DataBrowser";
-import { PageHeader } from "@/components/ui";
+import type { DataIndex, DataRow } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Data" };
-
-export default async function DataPage({ searchParams }: PageProps<"/data">) {
-  const initial = parseFilters(await searchParams);
+// Every session's per-stream sizes, for the web app's /data page (searching, filtering and
+// sorting happen in the browser).
+export async function GET() {
   const robots = await listRobots();
-
-  // Every session's per-stream sizes; searching, filtering and sorting happen in the browser.
   const rows: DataRow[] = await Promise.all(
     robots
       .flatMap((r) => r.sessions)
@@ -35,11 +30,5 @@ export default async function DataPage({ searchParams }: PageProps<"/data">) {
         };
       }),
   );
-
-  return (
-    <div className="space-y-5">
-      <PageHeader title="Data" description="Find sessions across every robot and download them by data type." />
-      <DataBrowser rows={rows} robots={robots.map((r) => r.robotId)} initial={initial} />
-    </div>
-  );
+  return NextResponse.json({ robots: robots.map((r) => r.robotId), rows } satisfies DataIndex);
 }

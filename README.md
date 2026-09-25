@@ -1,115 +1,114 @@
-# Saibya Archive: web app
+# Saibya Archive: Server
 
-The team-facing viewer for recorded robot sessions: camera video, LiDAR and IMU that `cloud_sync` on the Jetson uploads to S3. This is the "Web App" box in `references/Task.excalidraw` (SAIBYA → AWS Session Sync v2).
+The backend of the Saibya archive: robots upload through it, it keeps the Postgres index, and it serves the archive to the web app as a JSON API. It has **no pages**. The UI is the web app on the `main` branch, which calls this API.
 
-- **By robot:** robots → sessions (recording / closed / interrupted) → the 4 cameras playing in sync, plus downloads.
-- **By data type:** camera or LiDAR + IMU data across every robot and session, filterable by robot and camera.
-- **One file per stream:** the robot uploads short chunks, but you get one video per camera, one IMU CSV and one LiDAR ZIP per session. The browser joins the chunks straight from presigned S3 URLs, with no server work.
+| Branch | What | Runs on |
+|---|---|---|
+| `server` (this) | API: ingest, Postgres index, S3 access | EC2 `43.204.46.19`, `/opt/saibya/app`, pm2 `saibya-archive`, nginx :80 → :3000 |
+| `main` | Web app: pages, player, downloads | Locally (`npm run dev`), talks to this API |
 
-There is no auth yet (planned: NextAuth + Google Workspace, team only). **Don't deploy it publicly with real keys until auth is added.**
+There is no viewer auth yet. The read API is open to anyone who can reach the server, so keep it off a public domain until auth is added. The robot and admin routes need bearer tokens.
 
-## Run it
+## API
 
-```bash
-cd session-viewer
-npm install
-npm run dev          # http://localhost:3000
-```
+Read (the web app):
 
-With no `S3_BUCKET` set, the app runs on **generated demo data**: 3 robots and 9 sessions, one "recording now" and two interrupted. IMU chunks are generated on request, so the IMU download works. Video and LiDAR chunks are listed but have no content.
+| Route | Returns |
+|---|---|
+| `GET /` | This list of endpoints |
+| `GET /api/info` | `{ service, mode: s3/demo, index: db/s3, interruptedAfterMin }` (no S3 or DB call) |
+| `GET /api/health` | Checks the database and S3, with a plain-language hint on failure |
+| `GET /api/robots` | Every robot with its sessions, sizes and latest heartbeat |
+| `GET /api/robots/:robot` | `{ robotId, sessions, link }`, 404 for an unknown robot |
+| `GET /api/robots/:robot/sessions/:session` | `{ session, files (with download URLs), cameras (segments for the player) }` |
+| `GET /api/robots/:robot/sessions/:session/files` | File list with URLs (`?kind=camera\|sensors\|meta`, `?camera=`, `?sensor=lidar\|imu`, `?download=1`) |
+| `GET /api/robots/:robot/sessions/:session/object/<path>` | Streams one file from S3 (Range supported, `?download=1` sets the file name) |
+| `GET /api/robots/:robot/sessions/:session/cameras/:cam/playlist` | HLS VOD playlist over the camera's `.ts` chunks |
+| `GET /api/data` | `{ robots, rows }`: per-stream sizes of every session, for the web app's Data page |
 
-To use the real bucket, copy `.env.example` to `.env.local` and fill in the `webapp-reader` keys.
+URLs inside responses (file and playlist links) are relative (`/api/...`). The web app proxies `/api/*` to this server, so the browser uses them as they are.
 
-## S3 layout it reads
+Robot (`Authorization: Bearer <device token>`, one per robot, `npm run robot:add -- <robot>`):
 
-This is the layout `cloud_sync` on the robot already writes:
+| Route | What |
+|---|---|
+| `PUT /api/ingest/upload` | Upload one file; the server writes it to S3 and indexes it |
+| `POST /api/ingest` | Report objects the robot uploaded to S3 itself: `{ events: [{ key, size, uploaded_at, manifest? }] }` |
+| `POST /api/ingest/heartbeat` | cloud_sync status (current session, backlog, disk, alerts) about once a minute |
+
+Admin (`Authorization: Bearer $ADMIN_TOKEN`):
+
+| Route | What |
+|---|---|
+| `POST /api/admin/reindex` | Rebuild the index from S3 (`?robot=`, `?full=1`). S3 is the source of truth. |
+
+## Index
+
+- **`DATABASE_URL` set (EC2):** robots, sessions and files come from Postgres (`db/schema.sql`), filled by the ingest routes and the re-index.
+- **No database:** everything is derived from S3 listings plus `session.json`.
+- **No `S3_BUCKET`:** generated demo data (3 robots, 9 sessions), so the API and the web app can be developed offline.
+
+## S3 layout
+
+Written by `cloud_sync` on the robot:
 
 ```
 arnobot-saibya-data/
-  <robot_id>/sessions/<session_id>/
-    session.json                          metadata (status, started_at, ended_at, stop_reason, counts)
-    video/<cam>/*.ts                      DVR MPEG-TS segments overlapping the session
-    sensors/lidar/20260924_134701.npz     LiDAR scan chunks
-    sensors/imu/20260924_134701.csv.gz    IMU sample chunks
-  <robot_id>/_selftest/...                ignored
+  <robot_id>/sessions/<session_id>/          real sessions
+  <robot_id>/sim/sessions/<session_id>/      bench simulation, shown as robot "<robot_id>-sim"
+    session.json                             metadata; status / ended_at set when the session ends
+    upload_log.csv                           every upload of the session (written at the end)
+    _COMPLETE.json                           uploaded LAST: every file of the session is in S3
+    video/<cam>/<YYYYMMDD_HHMMSS>.ts         camera segments (video_segment_s: 600 real, 60 simulated)
+    sensors/lidar/<YYYYMMDD_HHMMSS>.npz      LiDAR scans
+    sensors/imu/<YYYYMMDD_HHMMSS>.csv.gz     IMU samples
 ```
 
-- **Chunk names** are the chunk's start time in **robot local time** (`YYYYMMDD_HHMMSS`, `ROBOT_UTC_OFFSET`, default `+05:30`). Names ending in `Z` are read as UTC. A video segment whose name has no timestamp is still downloadable but can't be placed on the player timeline.
-- **Status:** `session.json` with `ended_at` set, or a `status` other than RECORDING/ACTIVE/RUNNING → closed. Otherwise the session is recording if something was uploaded in the last `INTERRUPTED_AFTER_MINUTES` minutes, and interrupted if not.
-- **Robots** are the top-level prefixes (or `ROBOT_IDS`). The app only needs `s3:ListBucket` and `s3:GetObject`.
-- `*.part` and `*.tmp` files are ignored.
+- Chunk names are the chunk start in robot local time (`ROBOT_UTC_OFFSET`, default `+05:30`). Names ending in `Z` are UTC.
+- **Status:** `session.json` with `ended_at`, or a final status → closed. Otherwise active if the robot's heartbeat names the session or something was uploaded in the last `INTERRUPTED_AFTER_MINUTES`, else interrupted.
+- `*.part` and `*.tmp` are ignored.
 
-## Sensor formats
+## Run locally
 
-```
-sensors/imu/*.csv.gz   t_unix, ax, ay, az, gx, gy, gz, mx, my, mz, roll, pitch, yaw, yaw_raw
-sensors/lidar/*.npz    t float64[S] (unix), offsets int64[S+1], points float32[N,3] (angle_deg body 0=front CW, range_m, quality)
-```
-
-Scan `i` of a LiDAR chunk is `points[offsets[i]:offsets[i+1]]`, taken at `t[i]`:
-
-```python
-import numpy as np
-z = np.load("20260924_134701.npz")
-for i, t in enumerate(z["t"]):
-    scan = z["points"][z["offsets"][i]:z["offsets"][i + 1]]
+```bash
+npm install
+cp .env.example .env.local   # fill in, or leave S3_BUCKET empty for demo data
+npm run dev                  # http://localhost:3000
 ```
 
-## Video playback
+## Deploy (EC2)
 
-Each camera plays through hls.js. `/api/robots/<robot>/sessions/<session>/cameras/<cam>/playlist` builds an HLS VOD playlist over the chunks. Every file URL the app hands out (player segments and downloads) points at `/api/.../object/<path>`, which redirects to a freshly presigned S3 URL. The video comes straight from S3 and never goes through the web app, and a link can't expire while a page is open.
+```bash
+ssh -i saibya-archive-server.pem ubuntu@43.204.46.19
+cd /opt/saibya/app
+git pull --ff-only origin server
+npm ci                        # only when package-lock.json changed
+npm run db:migrate            # only when db/schema.sql changed
+npm run build
+pm2 restart saibya-archive
+curl -s http://127.0.0.1:3000/api/health
+```
 
-- **CORS:** the bucket must allow `GET`/`HEAD` from the app origin (Step 3 in the setup doc). Add the Vercel URL once it exists.
-- **Codec:** browsers play H.264 in `.ts` everywhere. If the main stream (101) is **H.265**, only Safari and some Edge/Chrome builds with hardware HEVC can play it. The player then shows a codec message, and the chunk can still be downloaded. Check the camera's codec before relying on browser playback.
-
-## Downloads
-
-| What | File | How it's built |
-|---|---|---|
-| One camera | `<robot>_<session>_cam1.ts` | The camera's `.ts` chunks joined in order. MPEG-TS concatenates cleanly, so it's one normal video (VLC, Windows Media Player). |
-| IMU | `<robot>_<session>_imu.csv` | The `.csv.gz` chunks decompressed and joined in order, with one header row. |
-| LiDAR | `<robot>_<session>_lidar.zip` | The `.npz` chunks as they are (each one is self-contained). |
-| Whole session | `<robot>_<session>.zip` | `<cam>.ts` per camera, `imu.csv`, `lidar/*.npz`, `session.json` |
-
-In Chrome and Edge the file streams to disk through the save dialog, so multi-GB videos are fine. Other browsers build it in memory and warn above 2 GB. A missing chunk is skipped, and the ZIP then lists it in `MISSING_FILES.txt`.
-
-An `.mp4` instead of `.ts` would need an ffmpeg remux step (on the Jetson at session end, or in the cloud), which the v2 design leaves out.
-
-## Other behaviour
-
-- **Live sessions:** pages that show a recording session refresh every 30 s. The players take in new chunks when paused, so playback is never interrupted.
-- **Caching:** closed sessions never change, so their S3 listing and session.json stay in server memory for 30 minutes. Open sessions are always listed fresh.
-- **Share a moment:** "Copy link to this moment" gives a URL with `?t=20260923T090512Z` that opens the session at that time.
-- **Snapshot / fullscreen** on each camera tile. The snapshot saves the current frame as PNG.
-- **`/api/health`** checks S3 access and explains the usual failures (bad key, missing permission, wrong bucket or region). The error page shows its result.
+Config lives in `/opt/saibya/app/.env.production` (see `.env.example`). S3 credentials come from the instance's IAM role; Postgres runs on the same instance and is dumped nightly to `/opt/saibya/backups` (crontab).
 
 ## Folder structure
 
 ```
-session-viewer/
-  src/
-    app/
-      page.tsx                             Robots overview (bot-wise)
-      robots/[robotId]/page.tsx            Sessions of one robot, status filter
-      robots/[robotId]/sessions/[sessionId]/page.tsx   Player + files + session.json
-      data/page.tsx                        Data-wise browser (camera / LiDAR + IMU)
-      api/robots/[robotId]/sessions/[sessionId]/
-        files/route.ts                     File list with download URLs (?kind= &camera= &sensor= &download=1)
-        object/[...path]/route.ts          Redirect to a fresh presigned S3 URL
-        cameras/[camera]/playlist/route.ts HLS playlist over the .ts chunks
-      api/health/route.ts                  S3 access check with a plain-language hint
-      api/demo/object/route.ts             Stands in for S3 in demo mode
-    components/
-      player/                              SessionPlayer, CameraView (hls.js), Timeline, useClock
-      DownloadButton.tsx  FileList.tsx  SessionTable.tsx  ui.tsx
-    lib/
-      archive.ts        sessions, status, stats (all derived from S3 listings + session.json)
-      downloads.ts      join video chunks, join IMU CSV, LiDAR ZIP, session ZIP, save to disk (browser)
-      keys.ts           S3 key layout and chunk-name parsing
-      storage/          s3.ts (AWS SDK), demo.ts (generated data)
-      config.ts  types.ts  format.ts
+src/
+  app/
+    route.ts                                  GET / (endpoint list)
+    api/info, health                          service facts, S3 + DB check
+    api/robots/...                            robots, sessions, files, object stream, HLS playlist
+    api/data                                  per-stream sizes for the Data page
+    api/ingest/{upload,heartbeat}, api/ingest robot uploads and status
+    api/admin/reindex                         rebuild the index from S3
+    api/demo/object                           stands in for S3 in demo mode
+  lib/
+    archive.ts     sessions, status, summaries (from Postgres or S3)
+    catalog.ts     Postgres reads and writes
+    keys.ts        S3 key layout and chunk-name parsing
+    storage/       s3.ts (AWS SDK), demo.ts (generated data)
+    auth.ts  config.ts  db.ts  types.ts
+db/schema.sql      Postgres schema
+scripts/           db-migrate.mjs, robot-add.mjs
 ```
-
-## Deploying to Vercel (later)
-
-Set the root directory to `web`, then add `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` (Vercel reserves the `AWS_*` names, which is why these use `S3_*`). Add auth before sharing the URL.

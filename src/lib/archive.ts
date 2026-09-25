@@ -351,6 +351,3 @@ function positive(v: unknown): number | null {
 }
 
 export const storageMode = () => storage.mode;
-
-/** One "now" per request, so every relative time on a page agrees. */
-export const requestNow = cache(() => Date.now());
