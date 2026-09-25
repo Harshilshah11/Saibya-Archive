@@ -34,7 +34,7 @@ export default async function Home() {
           The bucket is empty. Sessions show up here once cloud_sync starts uploading.
         </EmptyState>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {robots.map((r) => {
             const latest = r.sessions[0];
             return (

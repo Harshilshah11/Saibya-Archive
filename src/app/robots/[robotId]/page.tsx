@@ -93,28 +93,45 @@ export default async function RobotPage({ params, searchParams }: Props) {
           </div>
         }
       >
-        <form action={base} className="flex flex-wrap items-center gap-2 border-b border-border bg-panel-2/40 px-4 py-2.5 text-sm">
+        <form action={base} role="search" aria-label="Filter sessions" className="flex flex-wrap items-end gap-3 border-b border-border px-4 py-3 text-sm">
           {status && <input type="hidden" name="status" value={status} />}
-          <input
-            name="q"
-            defaultValue={sp.q ?? ""}
-            placeholder="Search session id"
-            className="w-56 rounded-md border border-border bg-panel px-2.5 py-1.5 font-mono text-sm outline-none focus:border-accent"
-          />
-          <label className="flex items-center gap-1.5 text-xs text-muted">
-            Day (UTC)
+          <div className="min-w-56 flex-1 sm:max-w-sm">
+            <label htmlFor="robot-q" className="mb-1.5 block text-xs font-medium text-muted">
+              Search
+            </label>
+            <div className="relative">
+              <svg className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                <circle cx="6" cy="6" r="4.2" />
+                <path d="m9.2 9.2 3.3 3.3" strokeLinecap="round" />
+              </svg>
+              <input
+                id="robot-q"
+                name="q"
+                type="search"
+                defaultValue={sp.q ?? ""}
+                placeholder="Session ID"
+                autoComplete="off"
+                className="h-9 w-full rounded-md border border-border bg-panel pr-2.5 pl-8 text-sm hover:border-faint focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="robot-date" className="mb-1.5 block text-xs font-medium text-muted">
+              Day (UTC)
+            </label>
             <input
+              id="robot-date"
               type="date"
               name="date"
               defaultValue={date ?? ""}
-              className="rounded-md border border-border bg-panel px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              className="h-9 rounded-md border border-border bg-panel px-2.5 text-sm text-text hover:border-faint focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             />
-          </label>
-          <button type="submit" className="rounded-md bg-accent px-3 py-1.5 font-medium text-on-accent hover:opacity-90">
-            Filter
+          </div>
+          <button type="submit" className="h-9 rounded-md border border-border bg-panel-2 px-3.5 font-medium hover:border-accent hover:text-accent">
+            Apply
           </button>
           {(q || date) && (
-            <a href={link({ status })} className="text-xs text-muted hover:text-text">
+            <a href={link({ status })} className="h-9 px-1 text-xs leading-9 text-muted hover:text-accent">
               Clear
             </a>
           )}

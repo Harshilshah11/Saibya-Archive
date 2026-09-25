@@ -14,7 +14,7 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border bg-panel-2/60 text-left text-[11px] uppercase tracking-wide text-muted">
+          <tr className="border-b border-border bg-panel-2/60 text-left whitespace-nowrap text-[11px] uppercase tracking-wide text-muted">
             {showRobot && <th className="px-4 py-2 font-medium">Robot</th>}
             <th className="px-4 py-2 font-medium">Session</th>
             <th className="px-4 py-2 font-medium">Trip</th>
@@ -31,7 +31,7 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
             <tr key={`${s.robotId}/${s.sessionId}`} className="border-b border-border last:border-0 hover:bg-panel-2">
               {showRobot && (
                 <td className="px-4 py-2.5">
-                  <Link href={`/robots/${encodeURIComponent(s.robotId)}`} className="font-mono font-medium hover:text-accent">
+                  <Link href={`/robots/${encodeURIComponent(s.robotId)}`} className="whitespace-nowrap font-mono font-medium hover:text-accent">
                     {s.robotId}
                   </Link>
                 </td>
@@ -41,9 +41,9 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
                   {s.sessionId}
                 </Link>
               </td>
-              <td className="px-4 py-2.5 text-muted">{s.trip ?? "—"}</td>
+              <td className="min-w-32 px-4 py-2.5 text-muted">{s.trip ?? "—"}</td>
               <td className="whitespace-nowrap px-4 py-2.5">{formatDateTime(s.start)}</td>
-              <td className="px-4 py-2.5">{formatDuration(s.durationSec)}</td>
+              <td className="whitespace-nowrap px-4 py-2.5">{formatDuration(s.durationSec)}</td>
               <td className="px-4 py-2.5">
                 <div className="flex flex-wrap gap-1 text-xs">
                   <Tag on={s.cameras.length > 0}>{s.cameras.length} cam</Tag>
@@ -51,7 +51,7 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
                   <Tag on={s.hasImu}>IMU</Tag>
                 </div>
               </td>
-              <td className="px-4 py-2.5 text-right">{formatBytes(s.totalBytes)}</td>
+              <td className="whitespace-nowrap px-4 py-2.5 text-right">{formatBytes(s.totalBytes)}</td>
               <td className="px-4 py-2.5">
                 <div className="flex flex-wrap gap-1">
                   <StatusBadge status={s.status} />

@@ -23,6 +23,7 @@ export const viewport: Viewport = {
 };
 
 // Applies a theme pinned with the header toggle before first paint, so it never flashes.
+// The browser-chrome colour is synced once the <meta name="theme-color"> tags exist.
 const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -33,12 +34,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <header className="sticky top-0 z-20 border-b border-border bg-panel/85 backdrop-blur-md">
-          <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:gap-5">
+          <div className="mx-auto flex h-16 max-w-screen-2xl items-center gap-3 px-6 sm:gap-5">
             <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Saibya Archive home">
-              <span className="brand-mark h-6 sm:hidden" aria-hidden />
-              <span className="brand-logo hidden h-5 sm:inline-block" aria-hidden />
-              <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
-              <span className="hidden text-sm font-semibold tracking-tight sm:inline">Saibya Archive</span>
+              <span className="brand-mark h-9 sm:hidden" aria-hidden />
+              <span className="brand-logo hidden h-8 sm:inline-block" aria-hidden />
+              <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
+              <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">Saibya Archive</span>
             </Link>
             <nav className="flex items-center gap-1 text-sm">
               <NavLink href="/" match={["/", "/robots"]}>Robots</NavLink>
@@ -57,10 +58,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-screen-2xl flex-1 px-6 py-6">{children}</main>
         <footer className="border-t border-border">
-          <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-4 text-xs text-faint">
-            <span className="brand-mark h-3.5" aria-hidden />
+          <div className="mx-auto flex max-w-screen-2xl items-center gap-2 px-6 py-4 text-xs text-faint">
+            <span className="brand-mark h-5" aria-hidden />
             <span>Arnobot · Saibya session archive</span>
           </div>
         </footer>

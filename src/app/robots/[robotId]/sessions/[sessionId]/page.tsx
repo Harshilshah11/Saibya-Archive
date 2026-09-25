@@ -8,7 +8,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { DownloadButton } from "@/components/DownloadButton";
 import { FileList } from "@/components/FileList";
 import { SessionPlayer } from "@/components/player/SessionPlayer";
-import { Crumbs, Panel, Stat, StatusBadge, UploadBadge } from "@/components/ui";
+import { Crumbs, Panel, StatusBadge, UploadBadge } from "@/components/ui";
 
 type Props = {
   params: Promise<{ robotId: string; sessionId: string }>;
@@ -96,83 +96,90 @@ export default async function SessionPage({ params, searchParams }: Props) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Started" value={<span className="text-base">{formatDateTime(session.start)}</span>} />
-        <Stat label="Duration" value={formatDuration(session.durationSec)} />
-        <Stat label="Camera video" value={formatBytes(session.stats.camera.bytes)} hint={`${session.cameras.length} cameras`} />
-        <Stat label="LiDAR + IMU" value={formatBytes(session.stats.sensors.bytes)} />
-        <Stat label="Last upload" value={formatAgo(session.lastUpload)} />
-      </div>
-
       <SessionPlayer apiBase={apiBase} start={start} end={end} demo={storageMode() === "demo"}
         cameras={cameras}
         initialTime={t ? parseChunkTime(t) : undefined}
       />
 
-      <Panel title="Downloads" actions={<span className="text-xs text-muted">one file per stream</span>}>
-        <ul className="divide-y divide-border">
-          {cameras.map((c) => (
-            <DownloadRow
-              key={c.name}
-              title={`${c.name} video`}
-              detail={`${formatDuration(c.seconds)} · MPEG-TS, plays in VLC / Media Player`}
-              button={
-                <DownloadButton
-                  apiBase={apiBase}
-                  fileName={`${base}_${c.name}.ts`}
-                  totalBytes={c.bytes}
-                  what={{ type: "camera", camera: c.name }}
-                  label="Download .ts"
-                />
-              }
-            />
-          ))}
-          {session.hasImu && (
-            <DownloadRow
-              title="IMU"
-              detail="HWT905 samples in one CSV: t_unix, ax, ay, az, gx, gy, gz, mx, my, mz, roll, pitch, yaw, yaw_raw"
-              button={
-                <DownloadButton
-                  apiBase={apiBase}
-                  fileName={`${base}_imu.csv`}
-                  totalBytes={imuBytes}
-                  what={{ type: "imu" }}
-                  label="Download .csv"
-                />
-              }
-            />
-          )}
-          {session.hasLidar && (
-            <DownloadRow
-              title="LiDAR"
-              detail="RPLIDAR C1 scans as numpy .npz chunks (t, offsets, points[angle_deg, range_m, quality]). Load with numpy.load."
-              button={
-                <DownloadButton
-                  apiBase={apiBase}
-                  fileName={`${base}_lidar.npz`}
-                  totalBytes={lidarBytes}
-                  what={{ type: "lidar" }}
-                  label="Download .zip"
-                />
-              }
-            />
-          )}
-          {sessionFile && (
-            <DownloadRow
-              title="session.json"
-              detail="Session summary"
-              button={
-                <a
-                  href={sessionFile.url}
-                  className="whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:border-accent hover:text-accent"
-                >
-                  Download .json
-                </a>
-              }
-            />
-          )}
-        </ul>
-      </Panel>
+      <div className="grid items-start gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <Panel title="Session">
+          <dl className="tabular divide-y divide-border text-sm">
+            <Fact label="Started">{formatDateTime(session.start)}</Fact>
+            <Fact label="Duration">{formatDuration(session.durationSec)}</Fact>
+            <Fact label="Camera video">
+              {formatBytes(session.stats.camera.bytes)}
+              <span className="text-muted"> · {session.cameras.length} camera{session.cameras.length === 1 ? "" : "s"}</span>
+            </Fact>
+            <Fact label="LiDAR + IMU">{formatBytes(session.stats.sensors.bytes)}</Fact>
+            <Fact label="Last upload">{formatAgo(session.lastUpload)}</Fact>
+          </dl>
+        </Panel>
+
+        <Panel title="Downloads" actions={<span className="text-xs text-muted">one file per stream</span>}>
+          <ul className="grid divide-y divide-border md:grid-cols-2 md:divide-y-0 md:[&>li]:border-b md:[&>li]:border-border md:[&>li:nth-child(odd)]:border-r">
+            {cameras.map((c) => (
+              <DownloadRow
+                key={c.name}
+                title={`${c.name} video`}
+                detail={`${formatDuration(c.seconds)} · MPEG-TS, plays in VLC / Media Player`}
+                button={
+                  <DownloadButton
+                    apiBase={apiBase}
+                    fileName={`${base}_${c.name}.ts`}
+                    totalBytes={c.bytes}
+                    what={{ type: "camera", camera: c.name }}
+                    label="Download .ts"
+                  />
+                }
+              />
+            ))}
+            {session.hasImu && (
+              <DownloadRow
+                title="IMU"
+                detail="HWT905 samples in one CSV: t_unix, ax, ay, az, gx, gy, gz, mx, my, mz, roll, pitch, yaw, yaw_raw"
+                button={
+                  <DownloadButton
+                    apiBase={apiBase}
+                    fileName={`${base}_imu.csv`}
+                    totalBytes={imuBytes}
+                    what={{ type: "imu" }}
+                    label="Download .csv"
+                  />
+                }
+              />
+            )}
+            {session.hasLidar && (
+              <DownloadRow
+                title="LiDAR"
+                detail="RPLIDAR C1 scans as numpy .npz chunks (t, offsets, points[angle_deg, range_m, quality]). Load with numpy.load."
+                button={
+                  <DownloadButton
+                    apiBase={apiBase}
+                    fileName={`${base}_lidar.npz`}
+                    totalBytes={lidarBytes}
+                    what={{ type: "lidar" }}
+                    label="Download .zip"
+                  />
+                }
+              />
+            )}
+            {sessionFile && (
+              <DownloadRow
+                title="session.json"
+                detail="Session summary"
+                button={
+                  <a
+                    href={sessionFile.url}
+                    className="whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:border-accent hover:text-accent"
+                  >
+                    Download .json
+                  </a>
+                }
+              />
+            )}
+          </ul>
+        </Panel>
+      </div>
 
       <details className="group overflow-hidden rounded-xl border border-border bg-panel shadow-card">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm text-muted hover:text-text">
@@ -193,14 +200,23 @@ export default async function SessionPage({ params, searchParams }: Props) {
   );
 }
 
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-right font-medium">{children}</dd>
+    </div>
+  );
+}
+
 function DownloadRow({ title, detail, button }: { title: string; detail: string; button: React.ReactNode }) {
   return (
-    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <div className="font-mono text-sm font-medium">{title}</div>
-        <div className="mt-0.5 text-xs text-muted">{detail}</div>
+    <li className="px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 truncate font-mono text-sm font-medium">{title}</div>
+        {button}
       </div>
-      {button}
+      <div className="mt-1 text-xs text-muted">{detail}</div>
     </li>
   );
 }

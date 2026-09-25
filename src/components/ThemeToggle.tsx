@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 type Theme = "system" | "light" | "dark";
 
@@ -18,10 +18,22 @@ function subscribe(fn: () => void) {
   return () => listeners.delete(fn);
 }
 
+// matches viewport.themeColor in app/layout.tsx
+const CHROME = { light: "#ffffff", dark: "#111318" };
+
+/** Point both theme-color metas at the pinned theme, or back at their own media query. */
+function syncChrome(theme: Theme) {
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((m) => {
+    const own = m.media.includes("dark") ? "dark" : "light";
+    m.content = CHROME[theme === "system" ? own : theme];
+  });
+}
+
 function apply(theme: Theme) {
   const root = document.documentElement;
   if (theme === "system") delete root.dataset.theme;
   else root.dataset.theme = theme;
+  syncChrome(theme);
   try {
     if (theme === "system") localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, theme);
@@ -63,6 +75,7 @@ const OPTIONS: Array<{ value: Theme; label: string; icon: React.ReactNode }> = [
 
 export function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, read, () => "system" as Theme);
+  useEffect(() => syncChrome(read()), []);
   return (
     <div role="radiogroup" aria-label="Theme" className="flex items-center rounded-lg border border-border bg-panel-2 p-0.5">
       {OPTIONS.map((o) => (
