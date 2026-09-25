@@ -120,7 +120,7 @@ export function CameraView({ camera, segments, playlistUrl, time, playing, rate,
     "pointer-events-auto rounded bg-black/50 px-1.5 py-0.5 text-[11px] text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100 focus:opacity-100";
 
   return (
-    <div ref={boxRef} className="group relative aspect-video overflow-hidden rounded-md bg-black">
+    <div ref={boxRef} className="group relative aspect-video overflow-hidden rounded-lg bg-black ring-1 ring-border">
       {!demo && (
         <video
           ref={videoRef}

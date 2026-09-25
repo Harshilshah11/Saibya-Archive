@@ -58,6 +58,8 @@ export interface Manifest {
   ended_at?: string | null;
   ended_unix?: number | null;
   stop_reason?: string | null;
+  /** trip name typed by the operator at Start */
+  trip?: string | null;
   streams?: Record<string, string>;
   counts?: Record<string, number>;
   [key: string]: unknown;
@@ -72,6 +74,8 @@ export interface SessionSummary {
   robotId: string;
   sessionId: string;
   status: SessionStatus;
+  /** Trip (mission / day) the operator filed the session under, if any */
+  trip: string | null;
   /** epoch ms */
   start: number | null;
   /** epoch ms */
@@ -104,6 +108,15 @@ export interface RobotSummary {
   totalBytes: number;
   lastUpload: number | null;
   activeSessions: number;
+  /** Latest cloud_sync heartbeat (v3 database mode only) */
+  link: RobotLinkInfo | null;
+}
+
+export interface RobotLinkInfo {
+  /** epoch ms */
+  seenAt: number;
+  sessionId: string | null;
+  status: Record<string, unknown>;
 }
 
 /** A file as handed to the browser, with a short-lived download URL. */

@@ -33,6 +33,28 @@ export function sessionPrefix(robotId: string, sessionId: string): string {
   return `${sessionsPrefix(robotId)}${sessionId}/`;
 }
 
+/** Physical robot of an app robot id: "saibya02-sim" -> "saibya02" (the device that uploaded it). */
+export function robotOwner(robotId: string): string {
+  return isSimulatedRobot(robotId) ? robotId.slice(0, -SIM_SUFFIX.length) : robotId;
+}
+
+export interface SessionKey {
+  /** Top-level prefix = the robot that uploaded it, e.g. "saibya02" */
+  owner: string;
+  /** App robot id, e.g. "saibya02" or "saibya02-sim" */
+  robotId: string;
+  sessionId: string;
+  /** Path inside the session folder */
+  name: string;
+}
+
+/** "saibya02/sim/sessions/<id>/video/cam1/x.ts" -> { owner: "saibya02", robotId: "saibya02-sim", ... } */
+export function parseSessionKey(key: string): SessionKey | null {
+  const m = /^([^/]+)\/(sim\/)?sessions\/([^/]+)\/(.+)$/.exec(key);
+  if (!m || m[4].split("/").some((p) => !p || p === "." || p === "..")) return null;
+  return { owner: m[1], robotId: m[2] ? m[1] + SIM_SUFFIX : m[1], sessionId: m[3], name: m[4] };
+}
+
 /**
  * Chunk name -> epoch ms. Two forms:
  *   "20260923T090000Z"  UTC (used in app URLs, e.g. ?t=)

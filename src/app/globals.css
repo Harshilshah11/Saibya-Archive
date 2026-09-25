@@ -1,16 +1,18 @@
 @import "tailwindcss";
 
-/* Design tokens. Light by default, dark follows the OS. */
+/* Design tokens. Light by default; dark follows the OS unless the header toggle
+   pins one via <html data-theme="light|dark">. */
 :root {
-  --bg: #f6f7f9;
+  color-scheme: light;
+  --bg: #f5f6f8;
   --panel: #ffffff;
   --panel-2: #f0f2f5;
-  --border: #e2e5ea;
-  --text: #14171c;
-  --muted: #5f6773;
-  --faint: #8b929c;
+  --border: #e3e6eb;
+  --text: #121418;
+  --muted: #5d6572;
+  --faint: #8a919b;
   --accent: #2563eb;
-  --accent-soft: #e6eefe;
+  --accent-soft: #e8effd;
   --on-accent: #ffffff;
   --ok: #15803d;
   --ok-soft: #e3f5e8;
@@ -18,6 +20,8 @@
   --warn-soft: #fdf1dc;
   --live: #dc2626;
   --live-soft: #fde8e8;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow-lg: 0 4px 16px -4px rgb(16 24 40 / 0.12);
   --viz-bg: #0d1117;
   --viz-grid: #263041;
   --x: #ef4444;
@@ -26,24 +30,49 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b0d11;
-    --panel: #12151b;
-    --panel-2: #181c24;
-    --border: #252a34;
-    --text: #e7eaef;
-    --muted: #9aa3af;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0a0b0e;
+    --panel: #111318;
+    --panel-2: #181b22;
+    --border: #242833;
+    --text: #e8eaee;
+    --muted: #9aa2ae;
     --faint: #6b7380;
-    --accent: #60a5fa;
+    --accent: #6aa8ff;
     --accent-soft: #15233d;
-    --on-accent: #0b0d11;
+    --on-accent: #0a0b0e;
     --ok: #4ade80;
     --ok-soft: #10261a;
     --warn: #fbbf24;
     --warn-soft: #2a2110;
     --live: #f87171;
     --live-soft: #2c1414;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 8px 24px -8px rgb(0 0 0 / 0.6);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0b0e;
+  --panel: #111318;
+  --panel-2: #181b22;
+  --border: #242833;
+  --text: #e8eaee;
+  --muted: #9aa2ae;
+  --faint: #6b7380;
+  --accent: #6aa8ff;
+  --accent-soft: #15233d;
+  --on-accent: #0a0b0e;
+  --ok: #4ade80;
+  --ok-soft: #10261a;
+  --warn: #fbbf24;
+  --warn-soft: #2a2110;
+  --live: #f87171;
+  --live-soft: #2c1414;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 8px 24px -8px rgb(0 0 0 / 0.6);
 }
 
 @theme inline {
@@ -64,6 +93,8 @@
   --color-live: var(--live);
   --color-live-soft: var(--live-soft);
   --color-viz-bg: var(--viz-bg);
+  --shadow-card: var(--shadow);
+  --shadow-card-hover: var(--shadow-lg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -71,6 +102,34 @@
 body {
   background: var(--bg);
   color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* The Arnobot logo is white on transparent; used as a mask it takes the current text colour,
+   so it reads on both themes. */
+@layer components {
+  .brand-logo,
+  .brand-mark {
+    display: inline-block;
+    background: currentColor;
+    mask: var(--src) center / contain no-repeat;
+  }
+  .brand-logo {
+    --src: url("/brand/arnobot-logo.png");
+    aspect-ratio: 4.66;
+  }
+  .brand-mark {
+    --src: url("/brand/arnobot-mark.png");
+    aspect-ratio: 0.764;
+  }
 }
 
 .tabular {

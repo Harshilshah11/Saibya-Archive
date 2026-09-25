@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import { config, demoMode } from "@/lib/config";
+import { dbEnabled, sql } from "@/lib/db";
 import { storage } from "@/lib/storage";
 
-// Checks that the app can list the bucket, and explains the usual failure causes.
+// Checks that the app can reach the database (v3) and list the bucket, and explains the
+// usual failure causes.
 export async function GET() {
-  if (demoMode) return NextResponse.json({ ok: true, mode: "demo" });
+  if (dbEnabled) {
+    try {
+      await sql()`select 1 from sessions limit 1`;
+    } catch (err) {
+      const e = err as { code?: string; message?: string };
+      const hint = e.code === "42P01"
+        ? "The tables don't exist yet. Run: npm run db:migrate"
+        : "Can't reach the database. Check DATABASE_URL.";
+      return NextResponse.json({ ok: false, error: "Database", detail: e.message, hint }, { status: 503 });
+    }
+  }
+  const index = dbEnabled ? "db" : "s3";
+  if (demoMode) return NextResponse.json({ ok: true, mode: "demo", index });
   try {
     await storage.listPrefixes("");
-    return NextResponse.json({ ok: true, mode: "s3", bucket: config.bucket, region: config.region });
+    return NextResponse.json({ ok: true, mode: "s3", index, bucket: config.bucket, region: config.region });
   } catch (err) {
     const e = err as { name?: string; message?: string; code?: string };
     const text = `${e.name ?? ""} ${e.code ?? ""} ${e.message ?? ""}`;

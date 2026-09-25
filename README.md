@@ -11,7 +11,7 @@ There is no auth yet (planned: NextAuth + Google Workspace, team only). **Don't 
 ## Run it
 
 ```bash
-cd web
+cd session-viewer
 npm install
 npm run dev          # http://localhost:3000
 ```
@@ -86,7 +86,7 @@ An `.mp4` instead of `.ts` would need an ffmpeg remux step (on the Jetson at ses
 ## Folder structure
 
 ```
-web/
+session-viewer/
   src/
     app/
       page.tsx                             Robots overview (bot-wise)

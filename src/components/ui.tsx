@@ -28,11 +28,34 @@ export function UploadBadge({ upload, status }: { upload: "complete" | "uploadin
   );
 }
 
+export function PageHeader({
+  title,
+  description,
+  children,
+  mono = false,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  /** shown next to the title, e.g. the live-refresh indicator */
+  children?: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className={`text-2xl font-semibold tracking-tight ${mono ? "font-mono" : ""}`}>{title}</h1>
+        {children}
+      </div>
+      {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+    </div>
+  );
+}
+
 export function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border bg-panel px-4 py-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="tabular mt-1 text-xl font-semibold tracking-tight">{value}</div>
+    <div className="rounded-xl border border-border bg-panel px-4 py-3.5 shadow-card">
+      <div className="text-xs font-medium text-muted">{label}</div>
+      <div className="tabular mt-1.5 text-2xl font-semibold tracking-tight">{value}</div>
       {hint && <div className="mt-0.5 text-xs text-faint">{hint}</div>}
     </div>
   );
@@ -50,9 +73,9 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`rounded-lg border border-border bg-panel ${className}`}>
+    <section className={`overflow-hidden rounded-xl border border-border bg-panel shadow-card ${className}`}>
       {(title || actions) && (
-        <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
           {title && <h2 className="text-sm font-semibold">{title}</h2>}
           {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
         </div>
@@ -64,7 +87,7 @@ export function Panel({
 
 export function Crumbs({ items }: { items: Array<{ href?: string; label: string }> }) {
   return (
-    <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+    <nav className="mb-2 flex flex-wrap items-center gap-1.5 text-sm text-muted">
       {items.map((it, i) => (
         <span key={i} className="flex items-center gap-1.5">
           {i > 0 && <span className="text-faint">/</span>}
@@ -83,7 +106,7 @@ export function Crumbs({ items }: { items: Array<{ href?: string; label: string 
 
 export function EmptyState({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
+    <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
       <div className="font-medium">{title}</div>
       {children && <div className="mt-1 text-sm text-muted">{children}</div>}
     </div>
@@ -95,7 +118,7 @@ export function Pill({ active, href, children }: { active: boolean; href: string
     <Link
       href={href}
       className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-        active ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:text-text"
+        active ? "border-accent/40 bg-accent-soft font-medium text-accent" : "border-border bg-panel text-muted hover:border-faint hover:text-text"
       }`}
     >
       {children}

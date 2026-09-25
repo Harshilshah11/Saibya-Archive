@@ -6,7 +6,7 @@ import { formatAgo, formatBytes } from "@/lib/format";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import type { SessionStatus } from "@/lib/types";
 import { SessionTable } from "@/components/SessionTable";
-import { Crumbs, EmptyState, Panel, Pill, Stat } from "@/components/ui";
+import { Crumbs, EmptyState, PageHeader, Panel, Pill, Stat } from "@/components/ui";
 
 type Props = {
   params: Promise<{ robotId: string }>;
@@ -64,10 +64,9 @@ export default async function RobotPage({ params, searchParams }: Props) {
     <div className="space-y-6">
       <div>
         <Crumbs items={[{ href: "/", label: "Robots" }, { label: robotId }]} />
-        <div className="flex items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold tracking-tight">{robotId}</h1>
+        <PageHeader title={robotId} mono>
           {all.some((s) => s.status === "active") && <AutoRefresh />}
-        </div>
+        </PageHeader>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -92,13 +91,13 @@ export default async function RobotPage({ params, searchParams }: Props) {
           </div>
         }
       >
-        <form action={base} className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 text-sm">
+        <form action={base} className="flex flex-wrap items-center gap-2 border-b border-border bg-panel-2/40 px-4 py-2.5 text-sm">
           {status && <input type="hidden" name="status" value={status} />}
           <input
             name="q"
             defaultValue={sp.q ?? ""}
             placeholder="Search session id"
-            className="w-56 rounded-md border border-border bg-bg px-2.5 py-1.5 font-mono text-sm outline-none focus:border-accent"
+            className="w-56 rounded-md border border-border bg-panel px-2.5 py-1.5 font-mono text-sm outline-none focus:border-accent"
           />
           <label className="flex items-center gap-1.5 text-xs text-muted">
             Day (UTC)
@@ -106,10 +105,10 @@ export default async function RobotPage({ params, searchParams }: Props) {
               type="date"
               name="date"
               defaultValue={date ?? ""}
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
+              className="rounded-md border border-border bg-panel px-2 py-1.5 text-sm text-text outline-none focus:border-accent"
             />
           </label>
-          <button type="submit" className="rounded-md border border-border px-3 py-1.5 hover:border-accent hover:text-accent">
+          <button type="submit" className="rounded-md bg-accent px-3 py-1.5 font-medium text-on-accent hover:opacity-90">
             Filter
           </button>
           {(q || date) && (

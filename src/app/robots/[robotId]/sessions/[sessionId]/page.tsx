@@ -63,11 +63,11 @@ export default async function SessionPage({ params, searchParams }: Props) {
           ]}
         />
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-xl font-semibold tracking-tight">{sessionId}</h1>
+          <h1 className="font-mono text-2xl font-semibold tracking-tight">{sessionId}</h1>
           <StatusBadge status={session.status} />
           <UploadBadge status={session.status} upload={session.upload} />
           {session.simulated && (
-            <span className="rounded-full border border-amber-500/60 px-2 py-0.5 text-xs font-medium text-amber-500">
+            <span className="rounded-full border border-warn/50 px-2 py-0.5 text-xs font-medium text-warn">
               Simulated data
             </span>
           )}
@@ -174,7 +174,7 @@ export default async function SessionPage({ params, searchParams }: Props) {
         </ul>
       </Panel>
 
-      <details className="group rounded-lg border border-border bg-panel">
+      <details className="group overflow-hidden rounded-xl border border-border bg-panel shadow-card">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm text-muted hover:text-text">
           <span className="transition-transform group-open:rotate-90">▸</span>
           Raw upload chunks and session.json
@@ -198,7 +198,7 @@ function DownloadRow({ title, detail, button }: { title: string; detail: string;
     <li className="flex flex-wrap items-center gap-3 px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="font-mono text-sm font-medium">{title}</div>
-        <div className="text-xs text-muted">{detail}</div>
+        <div className="mt-0.5 text-xs text-muted">{detail}</div>
       </div>
       {button}
     </li>

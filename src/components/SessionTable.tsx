@@ -14,9 +14,10 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted">
+          <tr className="border-b border-border bg-panel-2/60 text-left text-[11px] uppercase tracking-wide text-muted">
             {showRobot && <th className="px-4 py-2 font-medium">Robot</th>}
             <th className="px-4 py-2 font-medium">Session</th>
+            <th className="px-4 py-2 font-medium">Trip</th>
             <th className="px-4 py-2 font-medium">Started</th>
             <th className="px-4 py-2 font-medium">Duration</th>
             <th className="px-4 py-2 font-medium">Data</th>
@@ -40,6 +41,7 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
                   {s.sessionId}
                 </Link>
               </td>
+              <td className="px-4 py-2.5 text-muted">{s.trip ?? "—"}</td>
               <td className="whitespace-nowrap px-4 py-2.5">{formatDateTime(s.start)}</td>
               <td className="px-4 py-2.5">{formatDuration(s.durationSec)}</td>
               <td className="px-4 py-2.5">
@@ -67,6 +69,6 @@ export function SessionTable({ sessions, showRobot = false }: { sessions: Sessio
 
 function Tag({ on, children }: { on: boolean; children: React.ReactNode }) {
   return (
-    <span className={`rounded px-1.5 py-0.5 ${on ? "bg-panel-2 text-text" : "text-faint line-through"}`}>{children}</span>
+    <span className={`rounded-md px-1.5 py-0.5 ${on ? "border border-border bg-panel-2 text-text" : "text-faint line-through"}`}>{children}</span>
   );
 }

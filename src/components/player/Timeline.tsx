@@ -49,7 +49,7 @@ export function Timeline({ clock, start, end, lanes }: { clock: Clock; start: nu
   }, [toggle, seek, time]);
 
   return (
-    <div className="rounded-lg border border-border bg-panel px-4 py-3">
+    <div className="rounded-xl border border-border bg-panel px-4 py-3 shadow-card">
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"

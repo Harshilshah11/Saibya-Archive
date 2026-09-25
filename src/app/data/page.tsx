@@ -6,7 +6,7 @@ import { sortCameras } from "@/lib/keys";
 import type { DataType } from "@/lib/types";
 import { DownloadButton } from "@/components/DownloadButton";
 import { sessionHref } from "@/components/SessionTable";
-import { EmptyState, Panel, Pill, Stat, StatusBadge, UploadBadge } from "@/components/ui";
+import { EmptyState, PageHeader, Panel, Pill, Stat, StatusBadge, UploadBadge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Data" };
 
@@ -68,18 +68,15 @@ export default async function DataPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Data</h1>
-        <p className="text-sm text-muted">Download by data type, across every robot and session.</p>
-      </div>
+      <PageHeader title="Data" description="Download by data type, across every robot and session." />
 
       <div className="grid gap-3 md:grid-cols-2">
         {TYPES.map((t) => (
           <Link
             key={t.value}
             href={href({ type: t.value, cam: undefined })}
-            className={`rounded-lg border bg-panel px-4 py-3 transition-colors ${
-              t.value === type ? "border-accent ring-1 ring-accent" : "border-border hover:border-accent"
+            className={`rounded-xl border bg-panel px-4 py-3.5 shadow-card transition ${
+              t.value === type ? "border-accent ring-1 ring-accent" : "border-border hover:border-accent/50 hover:shadow-card-hover"
             }`}
           >
             <div className="flex items-baseline justify-between">
@@ -92,7 +89,7 @@ export default async function DataPage({ searchParams }: Props) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted">Robot</span>
+        <span className="text-xs font-medium text-muted">Robot</span>
         <Pill active={!robot} href={href({ robot: undefined })}>All</Pill>
         {robots.map((r) => (
           <Pill key={r.robotId} active={robot === r.robotId} href={href({ robot: r.robotId })}>
@@ -101,7 +98,7 @@ export default async function DataPage({ searchParams }: Props) {
         ))}
         {type === "camera" && allCams.length > 0 && (
           <>
-            <span className="ml-4 text-xs text-muted">Camera</span>
+            <span className="ml-4 text-xs font-medium text-muted">Camera</span>
             <Pill active={!cam} href={href({ cam: undefined })}>All</Pill>
             {allCams.map((c) => (
               <Pill key={c} active={cam === c} href={href({ cam: c })}>
@@ -127,7 +124,7 @@ export default async function DataPage({ searchParams }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted">
+                <tr className="border-b border-border bg-panel-2/60 text-left text-[11px] uppercase tracking-wide text-muted">
                   <th className="px-4 py-2 font-medium">Robot</th>
                   <th className="px-4 py-2 font-medium">Session</th>
                   <th className="px-4 py-2 font-medium">Started</th>

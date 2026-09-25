@@ -36,8 +36,8 @@ export function SessionPlayer({ apiBase, start, end, cameras, demo, initialTime 
 
   return (
     <div className="space-y-3">
-      <section className="rounded-lg border border-border bg-panel p-3">
-        <div className="mb-2 flex items-baseline gap-2">
+      <section className="rounded-xl border border-border bg-panel p-3 shadow-card">
+        <div className="mb-3 flex items-baseline gap-2 px-1">
           <h2 className="text-sm font-semibold">Cameras</h2>
           <span className="text-xs text-faint">{demo ? "demo: no video content" : `${cameras.length} cameras, main stream 101`}</span>
         </div>
