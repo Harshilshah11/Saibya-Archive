@@ -12,7 +12,7 @@ import { robotOwner, SESSION_FILE } from "@/lib/keys";
 //   POST /api/admin/reindex                  Authorization: Bearer $ADMIN_TOKEN
 //        ?robot=saibya02                     only this app robot id (default: all)
 //        ?full=1                             also re-read sessions already marked complete
-// Idempotent; safe to run while robots upload. Uses webapp-reader's s3:ListBucket.
+// Idempotent; safe to run while robots upload. Uses s3:ListBucket (the Server's IAM role).
 
 export const maxDuration = 300;
 
@@ -23,6 +23,19 @@ export async function POST(req: NextRequest) {
   const full = q.get("full") === "1";
   const only = q.get("robot");
 
+  try {
+    return NextResponse.json({ ok: true, robots: await reindex(only, full) });
+  } catch (err) {
+    const e = err as { name?: string; message?: string };
+    console.error("reindex:", err);
+    return NextResponse.json(
+      { ok: false, error: e.name ?? "Error", detail: e.message, hint: "Check /api/health: S3 or the database is unreachable." },
+      { status: 502 },
+    );
+  }
+}
+
+async function reindex(only: string | null, full: boolean) {
   const robots = only ? [only] : await listStorageRobotIds();
   const report: Array<{ robot: string; sessions: number; skipped: number; files: number; rejected: number }> = [];
   for (const robotId of robots) {
@@ -61,5 +74,5 @@ export async function POST(req: NextRequest) {
     }
     report.push(line);
   }
-  return NextResponse.json({ ok: true, robots: report });
+  return report;
 }
