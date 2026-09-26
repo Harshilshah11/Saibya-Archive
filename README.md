@@ -18,7 +18,7 @@ npm install
 npm run dev          # http://localhost:3000, reading the EC2 Server
 ```
 
-To use another Server (e.g. one running locally on port 3100), copy `.env.example` to `.env.local` and set `API_URL`, then restart `npm run dev`.
+To use another Server (e.g. one running locally on port 3100), copy `.env.example` to `.env.local` and set `API_URL`, then restart `npm run dev`. When `API_URL` points at localhost and nothing is listening there, `npm run dev` also starts the Server from `../server` (a checkout of the `server` branch; override the path with `SERVER_DIR`), so both run in one terminal.
 
 ## How it talks to the Server
 
