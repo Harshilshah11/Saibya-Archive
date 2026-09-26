@@ -110,15 +110,25 @@ export default async function SessionPage({ params, searchParams }: Props) {
               <DownloadRow
                 key={c.name}
                 title={`${c.name} video`}
-                detail={`${formatDuration(c.seconds)} · MPEG-TS, plays in VLC / Media Player`}
+                detail={`${formatDuration(c.seconds)} · MP4 plays on Windows, Mac and phones; .ts needs VLC`}
                 button={
-                  <DownloadButton
-                    apiBase={apiBase}
-                    fileName={`${base}_${c.name}.ts`}
-                    totalBytes={c.bytes}
-                    what={{ type: "camera", camera: c.name }}
-                    label="Download .ts"
-                  />
+                  <div className="flex items-center gap-2">
+                    {/* Built on the Server on first click (a stream copy), so it can take a few seconds to start */}
+                    <a
+                      href={`${apiBase}/cameras/${encodeURIComponent(c.name)}/mp4?download=1`}
+                      download={`${base}_${c.name}.mp4`}
+                      className="whitespace-nowrap rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:opacity-90"
+                    >
+                      Download .mp4
+                    </a>
+                    <DownloadButton
+                      apiBase={apiBase}
+                      fileName={`${base}_${c.name}.ts`}
+                      totalBytes={c.bytes}
+                      what={{ type: "camera", camera: c.name }}
+                      label=".ts"
+                    />
+                  </div>
                 }
               />
             ))}

@@ -157,6 +157,8 @@ export interface CameraTrack {
   bytes: number;
   /** summed segment length, seconds */
   seconds: number;
+  /** the whole camera as one MP4 (Windows, macOS, phones); older Servers leave it out */
+  mp4Url?: string;
 }
 
 /** GET /api/robots/:robotId/sessions/:sessionId */
