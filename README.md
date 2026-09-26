@@ -24,6 +24,7 @@ Read (the web app):
 | `GET /api/robots/:robot/sessions/:session/files` | File list with URLs (`?kind=camera\|sensors\|meta`, `?camera=`, `?sensor=lidar\|imu`, `?download=1`) |
 | `GET /api/robots/:robot/sessions/:session/object/<path>` | Streams one file from S3 (Range supported, `?download=1` sets the file name) |
 | `GET /api/robots/:robot/sessions/:session/cameras/:cam/playlist` | HLS VOD playlist over the camera's `.ts` chunks |
+| `GET /api/robots/:robot/sessions/:session/cameras/:cam/mp4` | The whole camera as one MP4 that plays on Windows, macOS (QuickTime) and phones (`?download=1` saves it). Built from the chunks on first request (stream copy; H.265 tagged `hvc1` for QuickTime) and cached in `MP4_CACHE_DIR` for `MP4_CACHE_HOURS` (24) |
 | `GET /api/data` | `{ robots, rows }`: per-stream sizes of every session, for the web app's Data page |
 
 URLs inside responses (file and playlist links) are relative (`/api/...`). The web app proxies `/api/*` to this server, so the browser uses them as they are.

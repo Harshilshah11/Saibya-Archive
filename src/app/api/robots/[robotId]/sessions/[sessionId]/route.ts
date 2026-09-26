@@ -20,6 +20,7 @@ export async function GET(
       segments: segs.map(({ start, duration }) => ({ start, duration })),
       bytes: files.filter((f) => f.camera === name).reduce((n, f) => n + f.size, 0),
       seconds: segs.reduce((n, s) => n + s.duration, 0),
+      mp4Url: `/api/robots/${encodeURIComponent(robotId)}/sessions/${encodeURIComponent(sessionId)}/cameras/${encodeURIComponent(name)}/mp4?download=1`,
     };
   });
 

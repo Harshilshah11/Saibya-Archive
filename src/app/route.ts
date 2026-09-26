@@ -14,6 +14,7 @@ export function GET() {
         "GET /api/robots/:robotId/sessions/:sessionId/files",
         "GET /api/robots/:robotId/sessions/:sessionId/object/*path",
         "GET /api/robots/:robotId/sessions/:sessionId/cameras/:camera/playlist",
+        "GET /api/robots/:robotId/sessions/:sessionId/cameras/:camera/mp4",
         "GET /api/data",
       ],
       robot: ["PUT /api/ingest/upload", "POST /api/ingest", "POST /api/ingest/heartbeat"],
